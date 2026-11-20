@@ -1,5 +1,7 @@
 # Starts the car service and the Cloudflare tunnel, and restarts either one if it stops.
-# Run by the "kia-remote" scheduled task at logon (scripts\install-startup.ps1), hidden.
+# Run by the "kia-remote" scheduled task at logon (scripts\install-startup.ps1) in a console with no
+# window. The service and the tunnel share that console (-NoNewWindow): a new console of their own
+# would flash up, or open in Windows Terminal when that is the default terminal.
 # Logs: %LOCALAPPDATA%\kia-remote\start.log (the service keeps its own server.log there too).
 #
 # The tunnel runs a saved copy of cloudflared (%LOCALAPPDATA%\kia-remote\cloudflared.exe, through
@@ -58,7 +60,7 @@ while ($true) {
     if (-not $server -or $server.HasExited) {
         if ($server) { Say "car service stopped (exit $($server.ExitCode)); restarting" }
         $server = Start-Process -FilePath $python -ArgumentList '-m', 'server' `
-            -WorkingDirectory $root -WindowStyle Hidden -PassThru
+            -WorkingDirectory $root -NoNewWindow -PassThru
         Say "car service started (pid $($server.Id))"
     }
     if ($tunnel -and -not $tunnel.HasExited -and ((Get-Date) - $tunnelSince).TotalSeconds -ge 90) {
@@ -71,7 +73,7 @@ while ($true) {
     if (-not $tunnel -or $tunnel.HasExited) {
         if ($tunnel) { Say "tunnel stopped (exit $($tunnel.ExitCode)); restarting" }
         $tunnel = Start-Process -FilePath $npx -ArgumentList '--yes', 'wrangler@4', 'tunnel', 'run', 'kia-remote' `
-            -WorkingDirectory $env:TEMP -WindowStyle Hidden -PassThru
+            -WorkingDirectory $env:TEMP -NoNewWindow -PassThru
         $tunnelSince = Get-Date; $notReady = 0
         Say "tunnel started (pid $($tunnel.Id))"
     }
