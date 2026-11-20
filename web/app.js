@@ -8,12 +8,13 @@ import { int, dec, temp, num, ago, minutesSince, coords, mapsUrl, DASH } from '.
 import { renderCar, climateMode } from './car.js';
 import { renderPresets, openClimateSheet, lastOptions, describe, setDial } from './climate.js';
 import * as schedule from './schedule.js';
+import { openHealth } from './health.js';
 
 const POLL_MS = 30000;
 const CMD_POLL_MS = 2000;
 const REAUTH_KEY = 'sportage.reauth';
 const RELOAD_KEY = 'sportage.autoreload';
-const APP_VERSION = 'v23';   // matches sw.js VERSION; shown at the bottom of the menu
+const APP_VERSION = 'v24';   // matches sw.js VERSION; shown at the bottom of the menu
 const CACHE_KEY = 'sportage.state';
 const PRESET_KEY = 'sportage.presets';
 
@@ -193,15 +194,21 @@ const WARNINGS = [
   ['smart_key_battery', 'key'], ['aux_battery', 'battery'],
 ];
 
-function renderWarnings(v) {
-  const items = [];
+/** The warning lights the car reports now: [{ico, text}]. */
+function activeWarnings(v) {
+  const found = [];
   for (const [key, ico] of WARNINGS) {
-    if (v.warnings?.[key] === true) items.push(el('li', { class: 'warn' }, icon(ico), el('span', { text: t(`warn.${key}`) })));
+    if (v?.warnings?.[key] === true) found.push({ ico, text: t(`warn.${key}`) });
   }
-  const tires = v.tires || {};
+  const tires = v?.tires || {};
   if (tires.warning === true || ['front_left', 'front_right', 'rear_left', 'rear_right'].some((c) => tires[c] === true)) {
-    items.push(el('li', { class: 'warn' }, icon('tire'), el('span', { text: t('warn.tires') })));
+    found.push({ ico: 'tire', text: t('warn.tires') });
   }
+  return found;
+}
+
+function renderWarnings(v) {
+  const items = activeWarnings(v).map((w) => el('li', { class: 'warn' }, icon(w.ico), el('span', { text: w.text })));
   $('warn-list').replaceChildren(...items);
   $('warnings').hidden = items.length === 0;
 }
@@ -798,6 +805,10 @@ function wire() {
     if (choice === 'wake') wakeCar();
     if (choice === 'passkey') togglePasskey();
     if (choice === 'devices') openDevices();
+    if (choice === 'health') {
+      const v = state?.vehicle;
+      openHealth({ warnings: activeWarnings(v), serviceKm: num(v?.next_service_km) });
+    }
     if (choice === 'logout') {
       try {
         setState(await api.logout());

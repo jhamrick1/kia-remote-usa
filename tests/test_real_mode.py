@@ -469,3 +469,53 @@ class _NoCar:
 
     def saved_credentials(self):
         return None
+
+
+KIA_REPORT = {
+    "reportId": 1234567, "reportDate": "2026-10-25", "odometer": 5021.6, "odometerUnit": 1,
+    "odometerUnitStr": "km",
+    "systems": [
+        {"name": "CHASSIS", "subSystems": [
+            {"name": "Electronic Parking Brake", "code": "EPB", "status": "G", "img": "x.png"},
+            {"name": "Tire Pressure Monitoring System", "code": "TPMS", "status": "R", "img": "y.png"}]},
+        {"name": "HEV", "subSystems": [
+            {"name": "Battery Management System", "code": "BMS", "status": "G", "img": "z.png"}]},
+    ],
+    "drivingInfo": {"startsCount": 120, "runTime": 118320, "runTimeUnit": 3,
+                    "mileageTime": 84600, "mileageTimeUnit": 3, "idleEngineTime": 33720,
+                    "idleEngineTimeUnit": 3, "runDistance": 980, "runDistanceUnit": 1,
+                    "tirePressureFL": None},
+}
+
+
+def test_health_report_is_kept_from_the_librarys_own_read(tmp_path, memory_keyring, vm_factory, world):
+    world.health_report = KIA_REPORT
+    client = make_client(tmp_path, vm_factory)
+    assert client.get("/api/health").status_code == 401          # signed out: nothing
+    sign_in(client)
+    report = client.get("/api/health").json()["report"]
+    assert report["date"] == "2026-10-25" and report["odometer_km"] == 5022
+    assert [(s["group"], s["code"], s["ok"]) for s in report["systems"]] == [
+        ("chassis", "EPB", True), ("chassis", "TPMS", False), ("hybrid", "BMS", True)]
+    assert report["driving"] == {"starts": 120, "engine_on_s": 118320, "drive_s": 84600,
+                                 "idle_s": 33720, "distance_km": 980}
+    assert (tmp_path / "data" / "health-report.json").exists()
+    client.post("/api/logout")                                    # it belongs to that account
+    assert not (tmp_path / "data" / "health-report.json").exists()
+
+
+def test_no_health_report_before_kias_first(tmp_path, memory_keyring, vm_factory, world):
+    client = make_client(tmp_path, vm_factory)
+    sign_in(client)
+    assert client.get("/api/health").json() == {"report": None}
+
+
+def test_health_report_leaves_out_what_it_cant_read():
+    from server import health
+    assert health.parse(None) is None and health.parse({}) is None
+    report = health.parse({"systems": [{"name": "X", "subSystems": [{"name": "Y", "status": ""}]}],
+                           "drivingInfo": {"runTime": 5, "runTimeUnit": 9, "runDistance": 3,
+                                           "runDistanceUnit": 2}})
+    assert report["systems"] == [{"group": "x", "name": "Y", "code": None, "ok": None}]
+    assert report["driving"]["engine_on_s"] is None               # unknown unit: not guessed
+    assert report["driving"]["distance_km"] == 5                  # 3 miles

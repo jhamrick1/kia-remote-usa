@@ -61,6 +61,8 @@ What's in it:
   open door, the trunk or the hood. Drag it to spin it.
 - **Climate presets** ("Winter morning", "Quick warm"…) and **schedules** (e.g. warm the car
   at 7:40 on weekdays). The computer sends schedules, so they run even when your phone is off.
+- **Vehicle health:** Kia's monthly report (a check of each system, with engine starts, drive
+  and idle time and distance for the month), next to the warning lights the car reports now.
 - **Approved devices:** a new phone or browser has to enter the Kia account once, even after
   Cloudflare lets it in. You can see and remove approved devices in the menu.
 - **Unlock second factor:** Face ID or fingerprint (passkeys), or the Kia PIN.
@@ -135,7 +137,7 @@ change.
 | macOS | `~/Library/Application Support/kia-remote/` | The login Keychain (`kia-remote`) |
 | Linux / Pi | `~/.local/share/kia-remote/` | `secrets.json` in the data folder, readable only by that user |
 
-The data folder also holds presets, schedules, the command log, approved devices, passkeys
+The data folder also holds presets, schedules, the command log, the last health report, approved devices, passkeys
 (public keys only), settings, the service log and the cached car pictures. Secrets are never
 logged and never returned by the API. "Sign out of Kia" in the menu deletes them.
 

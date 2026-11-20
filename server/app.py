@@ -20,6 +20,7 @@ from . import schedules as schedule_rules
 from . import validation
 from . import regions
 from . import devices as device_rules
+from . import health
 from .access import JWT_HEADER, AccessVerifier, is_tunnel, load_settings
 from .demo import DemoCar
 from .errors import ServiceError
@@ -118,6 +119,8 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
                    else KiaCar(_secret_store(settings, data_dir), region=regions.get(settings.get("region"))))
     if getattr(backend, "region", None) is not None and backend.region.cache_dir is None:
         backend.region.cache_dir = data_dir
+    if hasattr(backend, "report_path") and backend.report_path is None:
+        backend.report_path = data_dir / "health-report.json"
     kwargs = {} if force_interval is None else {"force_interval": force_interval}
     service = CarService(backend, storage, **kwargs)
     scheduler = Scheduler(storage, service)
@@ -252,6 +255,11 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
         response = JSONResponse(service.state())
         set_device_cookie(response, gate.approve(body.get("label"), request.state.who, "kia account"))
         return response
+
+    @app.get("/api/health")
+    async def get_health():
+        """Kia's monthly health report: {"report": {...}} or {"report": null} before the first one."""
+        return {"report": health.parse(backend.health_report())}
 
     @app.get("/api/devices")
     async def get_devices(request: Request):

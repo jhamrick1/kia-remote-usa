@@ -21,6 +21,34 @@ DEMO_EMAIL = "demo@example.com"   # approving a device before any demo sign-in
 DEMO_PASSWORD = "demo"
 
 
+def _system(name: str, code: str, status: str = "G") -> dict[str, str]:
+    return {"name": name, "code": code, "status": status}
+
+
+# Kia's monthly report, in Kia's own format (see server/health.py). One system needs a look,
+# so the dashboard's warning row can be seen in demo mode.
+DEMO_HEALTH_REPORT: dict[str, Any] = {
+    "reportId": 1, "reportDate": "2026-10-25", "odometer": 12873.0, "odometerUnit": 1,
+    "systems": [
+        {"name": "CHASSIS", "subSystems": [
+            _system("Electronic Parking Brake", "EPB"), _system("Electronic Power Steering", "EPS"),
+            _system("Electronic Stability Control", "ESC"),
+            _system("Lane Departure Warning System", "LKAS"), _system("Smart Cruise Control", "SCC"),
+            _system("Tire Pressure Monitoring System", "TPMS", "Y")]},
+        {"name": "HEV", "subSystems": [
+            _system("Battery Management System", "BMS"), _system("Hybrid Control Unit", "HCULDC"),
+            _system("Microprocessor Control Unit", "MCU")]},
+        {"name": "POWERTRAIN", "subSystems": [
+            _system("Engine Management System", "EMS"), _system("Transmission Control System", "AT")]},
+        {"name": "SAFETY", "subSystems": [_system("Airbag System", "Airbag")]},
+    ],
+    "drivingInfo": {"startsCount": 96, "runTime": 112380, "runTimeUnit": 3,
+                    "mileageTime": 86100, "mileageTimeUnit": 3,
+                    "idleEngineTime": 26280, "idleEngineTimeUnit": 3,
+                    "runDistance": 1312, "runDistanceUnit": 1},
+}
+
+
 def _initial_vehicle() -> dict[str, Any]:
     now = dt.datetime.now(dt.UTC)
     door = {"open": False, "locked": True}
@@ -98,6 +126,10 @@ class DemoCar:
     def saved_credentials(self) -> tuple[str, str, str] | None:
         """Approving a device in demo mode: the last sign-in, else demo@example.com / demo / 1234."""
         return getattr(self, "_account", None) or (DEMO_EMAIL, DEMO_PASSWORD, DEMO_PIN)
+
+    def health_report(self) -> dict[str, Any] | None:
+        self.require_ok()
+        return copy.deepcopy(DEMO_HEALTH_REPORT)
 
     def require_ok(self) -> None:
         if self.auth != "ok":

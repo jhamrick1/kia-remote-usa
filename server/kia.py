@@ -6,8 +6,10 @@ library is only ever used one call at a time.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from hyundai_kia_connect_api import VehicleManager
@@ -15,7 +17,7 @@ from hyundai_kia_connect_api.ApiImpl import ClimateRequestOptions, OTPRequest
 from hyundai_kia_connect_api.const import OTP_NOTIFY_TYPE, ORDER_STATUS
 from hyundai_kia_connect_api.exceptions import AuthenticationOTPRequired
 
-from . import errors
+from . import errors, health
 from .errors import ServiceError
 from .secrets_store import REDACTOR, SecretStore
 from .timeutil import iso
@@ -148,6 +150,7 @@ class KiaCar:
         self._entry: dict[str, Any] | None = None   # model, year, paint; {} once asked and none
         # After a refused sign-in nothing logs in again until the person submits the form.
         self._auto_login_allowed = True
+        self.report_path: Path | None = None   # where Kia's monthly health report is kept (set by the app)
 
     # Setup
 
@@ -167,7 +170,27 @@ class KiaCar:
             return result
 
         vm.api.login = capturing_login
+        # The library already fetches Kia's monthly health report on a status read, but keeps
+        # only part of it. Keep Kia's whole answer too, for the health report.
+        original_report = getattr(vm.api, "_get_mvr_report", None)
+        if callable(original_report):
+            def capturing_report(*args: Any, **kwargs: Any) -> Any:
+                report = original_report(*args, **kwargs)
+                self._keep_report(report)
+                return report
+
+            vm.api._get_mvr_report = capturing_report
         return vm
+
+    def _keep_report(self, report: Any) -> None:
+        if self.report_path is None or not isinstance(report, dict) or not report:
+            return
+        try:
+            tmp = self.report_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+            tmp.replace(self.report_path)
+        except OSError as exc:
+            log.warning("Couldn't save the health report: %s", exc)
 
     def _set_needs_otp(self) -> None:
         req = getattr(self.vm, "otp_request", None)
@@ -298,6 +321,13 @@ class KiaCar:
         self._snapshot = None
         self._entry = None
         self.auth, self.auth_error, self.otp = "needs_login", None, None
+        if self.report_path is not None:
+            self.report_path.unlink(missing_ok=True)   # it belongs to the account that signed out
+
+    def health_report(self) -> dict[str, Any] | None:
+        """Kia's last monthly health report, as Kia sent it (see server/health.py)."""
+        self.require_ok()
+        return health.read(self.report_path)
 
     def saved_pin(self) -> str | None:
         return self.store.load_pin()

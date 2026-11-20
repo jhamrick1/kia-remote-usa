@@ -259,3 +259,10 @@ def test_app_name_from_settings_names_the_home_screen_icon(tmp_path):
     named = TestClient(create_app(demo=True, data_dir=tmp_path / "d2", web_dir=web, settings={"app_name": "Sportage"}), client=("127.0.0.1", 50000))
     m = named.get("/manifest.webmanifest").json()
     assert m["name"] == m["short_name"] == "Sportage"
+
+
+def test_demo_health_report(client):   # the demo car starts signed in
+    report = client.get("/api/health").json()["report"]
+    assert len(report["systems"]) == 12
+    assert [s["code"] for s in report["systems"] if s["ok"] is False] == ["TPMS"]
+    assert report["driving"]["starts"] == 96

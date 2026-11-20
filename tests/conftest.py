@@ -113,6 +113,7 @@ class FakeKiaWorld:
         self.vehicle_lists = 0          # vehicle list reads (model and paint codes)
         self.paint = "HRB"
         self.locked = True
+        self.health_report: dict | None = None   # Kia's monthly report; None: there isn't one yet
 
 
 class FakeSession:
@@ -220,6 +221,11 @@ class FakeApi:
 
     def update_vehicle_with_cached_state(self, token, vehicle):
         self._fill(token, vehicle)
+        if self.world.health_report is not None:   # the real library reads it here too
+            self._get_mvr_report(token, vehicle, self.world.health_report.get("reportId"))
+
+    def _get_mvr_report(self, token, vehicle, report_id):
+        return self.world.health_report
 
     def force_refresh_vehicle_state(self, token, vehicle):
         self._fill(token, vehicle)

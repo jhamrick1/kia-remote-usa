@@ -339,6 +339,10 @@
         <span class="menu-text"><span data-t="menu.passkey"></span><small id="menu-passkey-note"></small></span>
         <span class="menu-state" id="menu-passkey-state"></span>
       </button>
+      <button class="menu-item" value="health" id="menu-health">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+        <span class="menu-text"><span data-t="menu.health"></span><small data-t="menu.health.note"></small></span>
+      </button>
       <button class="menu-item" value="devices" id="menu-devices">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm3 15h2"/></svg>
         <span class="menu-text"><span data-t="menu.devices"></span><small data-t="menu.devices.note"></small></span>
@@ -349,6 +353,37 @@
       </button>
       <button class="btn-secondary" value="cancel" data-t="menu.cancel"></button>
       <p class="menu-version" id="menu-version"></p>
+    </form>
+  </dialog>
+
+  <dialog class="sheet sheet-tall" id="health-sheet" aria-labelledby="health-title">
+    <form method="dialog" class="sheet-body">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="health-title" data-t="health.title"></h2>
+        <button class="icon-btn" value="cancel" data-t-aria="menu.cancel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <p class="sheet-text health-meta" id="health-meta"></p>
+      <div class="health-summary" id="health-summary" role="status"></div>
+      <section class="health-section">
+        <h3 class="health-h" data-t="health.now"></h3>
+        <ul class="health-list" id="health-now-list"></ul>
+      </section>
+      <div id="health-report" hidden>
+        <section class="health-section" id="health-systems">
+          <h3 class="health-h" data-t="health.systems"></h3>
+          <div id="health-groups"></div>
+        </section>
+        <section class="health-section" id="health-driving">
+          <h3 class="health-h" data-t="health.driving"></h3>
+          <div class="health-stats" id="health-stats"></div>
+        </section>
+      </div>
+      <p class="form-error" id="health-error" role="alert" hidden></p>
+      <p class="health-foot" data-t="health.foot"></p>
+      <button class="btn-secondary" value="cancel" data-t="menu.cancel"></button>
     </form>
   </dialog>
 

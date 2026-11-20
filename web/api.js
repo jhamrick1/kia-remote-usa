@@ -71,6 +71,7 @@ export const login = (email, password, pin, label) => api('login', { method: 'PO
 export const approveDevice = (email, password, pin, label) =>
   api('device/approve', { method: 'POST', body: { email, password, pin, label } });
 export const listDevices = () => api('devices');
+export const health = () => api('health');
 export const deleteDevice = (id) => api(`devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const otpSend = (method) => api('otp/send', { method: 'POST', body: { method } });
 export const otpVerify = (code) => api('otp/verify', { method: 'POST', body: { code } });

@@ -153,6 +153,23 @@ for a frame that doesn't exist. The dashboard turns the car to the side that's o
 trunk or hood), and shows the drawing when more than one of those, a window, the sunroof or a tire
 needs showing.
 
+## GET /api/health -> `{"report": {...} | null}`
+Kia's monthly vehicle health report (Kia Connect makes one a month; the owner picks the day in the
+Kia app). The library already downloads it during a normal status read when a new one appears; the
+service keeps Kia's answer in `health-report.json` in the data folder (deleted on sign-out) and
+`server/health.py` turns it into:
+
+```json
+{"date": "2026-10-25", "odometer_km": 5022,
+ "systems": [{"group": "chassis", "name": "Electronic Parking Brake", "code": "EPB", "ok": true}],
+ "driving": {"starts": 120, "engine_on_s": 118320, "drive_s": 84600, "idle_s": 33720,
+             "distance_km": 980}}
+```
+
+`ok` is false for anything Kia didn't mark as a pass, null when Kia gave no result. A value the
+service can't read (an unknown unit) is null rather than guessed. `null` report: none yet. 401
+when signed out. No call to Kia, no car wake.
+
 ## Passkeys (fingerprint / Face ID for unlock)
 WebAuthn with the phone's own authenticator (`authenticatorAttachment: "platform"`,
 `userVerification: "required"`). The RP ID is the host name the browser used (`car.example.com`, or
