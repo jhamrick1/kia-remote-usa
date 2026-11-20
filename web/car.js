@@ -46,8 +46,22 @@ export function openSummary(v) {
 
 let photoReady = false;
 let photoAsked = false;
+let waiting = false; // expecting the car's picture (it was there last time): no drawing meanwhile
 let lastV = null;
 let turner = null;   // the 360 view, once its frames are loaded
+
+// What this phone saw last time: {spin: frames} or {photo: true}. Lets a fresh start (after the
+// phone dropped the app from memory) go straight to the real car instead of flashing the drawing.
+const LOOK_KEY = 'sportage.carlook';
+const WAIT_MS = 6000;       // give up waiting and show the drawing
+function readLook() {
+  try { return JSON.parse(localStorage.getItem(LOOK_KEY) || 'null'); } catch { return null; }
+}
+function saveLook(look) {
+  try {
+    if (look) localStorage.setItem(LOOK_KEY, JSON.stringify(look)); else localStorage.removeItem(LOOK_KEY);
+  } catch { /* private mode */ }
+}
 
 function attention(v) {
   return openParts(v).length > 0 || CORNERS.some((c) => v?.tires?.[c] === true);
@@ -62,13 +76,21 @@ function renderPhoto(v) {
   if (!wrap || !img || !stage) return;
   if (!photoAsked && v) {
     photoAsked = true;
-    img.addEventListener('load', () => {
-      photoReady = true;
-      renderPhoto(lastV);
-      loadSpin(img, stage).then((t) => { turner = t; if (t) renderPhoto(lastV); });
-    }, { once: true });
-    img.addEventListener('error', () => { photoReady = false; }, { once: true });
-    img.src = 'api/car-photo';
+    const look = readLook();
+    waiting = !!(look?.spin || look?.photo);
+    if (waiting) setTimeout(() => { if (waiting) { waiting = false; renderPhoto(lastV); } }, WAIT_MS);
+    if (look?.spin >= 8) {
+      // Straight to the 360 view, frames from the browser's cache; the single photo only if that fails.
+      stage.classList.add('has-spin');
+      loadSpin(img, stage, look.spin).then((t) => {
+        if (t) { turner = t; photoReady = true; waiting = false; renderPhoto(lastV); return; }
+        stage.classList.remove('has-spin');
+        saveLook(null);
+        loadPhoto(img, stage);
+      });
+    } else {
+      loadPhoto(img, stage);
+    }
   }
   lastV = v;
   // With the 360 view the car turns to what's open; without it the drawing shows anything open.
@@ -76,7 +98,28 @@ function renderPhoto(v) {
   const show = photoReady && (turner ? view !== null : !attention(v));
   if (show && turner) turner.face(view);
   wrap.hidden = !show;
-  stage.classList.toggle('is-photo', show);
+  // While waiting, the stage keeps the picture's shape and stays empty (no drawing to flash).
+  stage.classList.toggle('is-photo', show || (waiting && !photoReady));
+}
+
+function loadPhoto(img, stage) {
+  img.addEventListener('load', () => {
+    photoReady = true;
+    waiting = false;
+    if (!readLook()?.spin) saveLook({ photo: true });
+    renderPhoto(lastV);
+    loadSpin(img, stage).then((t) => {
+      turner = t;
+      if (t) { saveLook({ spin: t.count }); renderPhoto(lastV); }
+    });
+  }, { once: true });
+  img.addEventListener('error', () => {
+    photoReady = false;
+    waiting = false;
+    saveLook(null);
+    renderPhoto(lastV);
+  }, { once: true });
+  img.src = 'api/car-photo';
 }
 
 export function renderCar(app, v) {

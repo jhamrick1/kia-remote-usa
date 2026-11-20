@@ -13,7 +13,7 @@ const POLL_MS = 30000;
 const CMD_POLL_MS = 2000;
 const REAUTH_KEY = 'sportage.reauth';
 const RELOAD_KEY = 'sportage.autoreload';
-const APP_VERSION = 'v22';   // matches sw.js VERSION; shown at the bottom of the menu
+const APP_VERSION = 'v23';   // matches sw.js VERSION; shown at the bottom of the menu
 const CACHE_KEY = 'sportage.state';
 const PRESET_KEY = 'sportage.presets';
 

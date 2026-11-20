@@ -29,13 +29,16 @@ export function viewFor(v) {
   return VIEW.home;
 }
 
-/** Load every frame; resolves to a turner, or null when there's no 360 view. */
-export async function loadSpin(img, stage) {
-  let count = 0;
-  try {
-    const res = await fetch('api/car-spin', { cache: 'no-store', redirect: 'manual' });
-    if (res.ok) count = Number((await res.json()).frames) || 0;
-  } catch { /* offline: keep the single picture */ }
+/** Load every frame; resolves to a turner, or null when there's no 360 view.
+ * known: the frame count from last time, to start from the browser's cache without asking. */
+export async function loadSpin(img, stage, known = 0) {
+  let count = known;
+  if (count < 8) {
+    try {
+      const res = await fetch('api/car-spin', { cache: 'no-store', redirect: 'manual' });
+      if (res.ok) count = Number((await res.json()).frames) || 0;
+    } catch { /* offline: keep the single picture */ }
+  }
   if (count < 8) return null;
   const frames = Array.from({ length: count }, (_, i) => {
     const im = new Image();
@@ -95,6 +98,7 @@ function makeTurner(img, stage, frames) {
   stage.classList.add('has-spin');
   show(0);
   return {
+    count: n,
     face(deg) { goal = frameOf(deg); if (!held) run(); },
   };
 }
