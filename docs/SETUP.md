@@ -124,7 +124,10 @@ In the Cloudflare dashboard, open **Zero Trust**. The first time, it asks you to
    **`127.0.0.1:8765`**. Cloudflare creates the DNS record for you.
 
 *Windows alternative:* `scripts\start.ps1` can run the tunnel itself with
-`npx wrangler tunnel run kia-remote` (that needs Node.js and a one-time `npx wrangler login`). If
+`npx wrangler tunnel run kia-remote` (that needs Node.js and a one-time `npx wrangler login`). It
+keeps its own copy of cloudflared in `%LOCALAPPDATA%\kia-remote` (refreshed at logon every 30 days),
+so a new cloudflared release can't stall the hidden tunnel on wrangler's "download?" question, and
+it restarts the tunnel if it runs without a connection for 90 seconds. If
 you installed the cloudflared service above, delete the tunnel lines from `start.ps1` so the
 tunnel isn't run twice.
 
