@@ -16,7 +16,8 @@ def main() -> None:
     parser.add_argument("--demo", action="store_true", help="fake car: no Kia calls, no saved secrets")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data-dir", help="folder for presets, logs and passkeys "
-                        "(default: the kia-remote folder in %%LOCALAPPDATA%%; for tests)")
+                        "(default: kia-remote in %%LOCALAPPDATA%% on Windows, ~/Library/Application Support "
+                        "on macOS, ~/.local/share on Linux)")
     args = parser.parse_args()
     app = create_app(demo=args.demo, data_dir=args.data_dir)
     print(f"Kia remote {'(demo) ' if args.demo else ''}on http://{HOST}:{args.port} "

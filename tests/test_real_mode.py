@@ -7,6 +7,7 @@ handling (never retried), and that no secret ever reaches an API response or a f
 from __future__ import annotations
 
 import datetime as dt
+import os
 import json
 
 import pytest
@@ -419,3 +420,52 @@ def test_kia_ca_catalog_matches_model_paint_and_nearest_year():
     assert match(index, "SPORTAGE HYBRID", 2026, "HRB") == frames      # same first word
     assert match(index, "EV6", 2022, "C7S")[0].endswith("ev6/wolf-grey/01.webp")   # nearest year
     assert match(index, "SPORTAGE", 2026, "XXX") is None and match(index, "SOUL", 2022, "C7S") is None
+
+
+# ---------------------------------------------------------------- secrets in a file (Linux, Raspberry Pi)
+
+def test_file_secret_store_round_trip(tmp_path, forbidden_keyring):
+    from hyundai_kia_connect_api.Token import Token
+
+    path = tmp_path / "data" / "secrets.json"
+    store = SecretStore(path)
+    assert store.load_credentials() is None
+    store.save_credentials(EMAIL, PASSWORD, PIN)
+    token = Token(username=EMAIL, password=PASSWORD, pin=PIN, access_token="A" * 2500,
+                  refresh_token="R", device_id="dev", valid_until=dt.datetime(2030, 1, 1, tzinfo=dt.UTC))
+    store.save_token(token)
+    again = SecretStore(path)                       # a restart reads the same file
+    assert again.load_credentials() == (EMAIL, PASSWORD, PIN)
+    assert again.load_pin() == PIN
+    assert again.load_token(EMAIL, PASSWORD, PIN).access_token == "A" * 2500
+    assert not list(path.parent.glob("*.tmp"))
+    if os.name == "posix":
+        assert (path.stat().st_mode & 0o777) == 0o600
+    again.clear()
+    assert not path.exists()                        # sign-out leaves no file behind
+
+
+def test_settings_choose_the_secret_store(tmp_path, forbidden_keyring, monkeypatch):
+    import server.app as app_module
+
+    made = []
+    monkeypatch.setattr(app_module, "KiaCar", lambda store, region=None: made.append(store) or _NoCar(region))
+    create_app(data_dir=tmp_path / "a", web_dir=tmp_path, settings={"secret_store": "file"}, configure_logging=False)
+    assert made[-1].file is not None and made[-1].file.path == tmp_path / "a" / "secrets.json"
+    create_app(data_dir=tmp_path / "b", web_dir=tmp_path, settings={"secret_store": "keyring"}, configure_logging=False)
+    assert made[-1].file is None
+    with pytest.raises(ValueError):
+        create_app(data_dir=tmp_path / "c", web_dir=tmp_path, settings={"secret_store": "usb"}, configure_logging=False)
+
+
+class _NoCar:
+    demo, auth = False, "needs_login"
+
+    def __init__(self, region):
+        self.region = region
+
+    def saved_pin(self):
+        return None
+
+    def saved_credentials(self):
+        return None

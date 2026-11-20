@@ -1,6 +1,11 @@
-"""Kia email, password, PIN and token: only in Windows Credential Manager, via keyring.
+"""Kia email, password, PIN and token: in the computer's own password store, via keyring.
 
-Nothing here writes a file or logs a value. Every secret that passes through is also
+Windows: Credential Manager. macOS: the login Keychain. Linux (a Raspberry Pi, a server) usually
+has no password store a background service can open, so there they go in `secrets.json` in the
+data folder instead, readable by this user only (mode 600). Choose with `"secret_store":
+"keyring"` or `"file"` in settings.json; the default is the file on Linux, keyring elsewhere.
+
+Nothing here logs a value. Every secret that passes through is also
 registered with `REDACTOR`, which scrubs it from log lines and error sentences.
 """
 
@@ -8,7 +13,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import sys
 import threading
+from pathlib import Path
 
 import keyring
 from keyring.errors import KeyringError, PasswordDeleteError
@@ -76,17 +84,81 @@ class RedactingFilter(logging.Filter):
         return True
 
 
+def default_kind() -> str:
+    return "file" if sys.platform.startswith("linux") else "keyring"
+
+
+class FileSecrets:
+    """The secrets as one JSON object in a file only this user can read (Linux: mode 600)."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._lock = threading.Lock()
+
+    def _read(self) -> dict[str, str]:
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            log.warning("%s is unreadable; signed out.", self.path.name)
+            return {}
+
+    def _write(self, data: dict[str, str]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        if tmp.exists():
+            tmp.unlink()
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        os.replace(tmp, self.path)
+
+    def get(self, key: str) -> str | None:
+        with self._lock:
+            value = self._read().get(key)
+        return value if isinstance(value, str) else None
+
+    def set(self, key: str, value: str) -> None:
+        with self._lock:
+            data = self._read()
+            data[key] = value
+            self._write(data)
+
+    def delete(self, key: str) -> None:
+        with self._lock:
+            data = self._read()
+            if data.pop(key, None) is not None:
+                if data:
+                    self._write(data)
+                else:
+                    self.path.unlink(missing_ok=True)
+
+
 class SecretStore:
+    def __init__(self, file: Path | None = None) -> None:
+        """file: keep secrets in this file instead of the system password store (see above)."""
+        self.file = FileSecrets(file) if file else None
+
     def _get(self, key: str) -> str | None:
+        if self.file:
+            return self.file.get(key)
         try:
             return keyring.get_password(SERVICE, key)
         except KeyringError:
             return None
 
     def _set(self, key: str, value: str) -> None:
+        if self.file:
+            self.file.set(key, value)
+            return
         keyring.set_password(SERVICE, key, value)
 
     def _delete(self, key: str) -> None:
+        if self.file:
+            self.file.delete(key)
+            return
         try:
             keyring.delete_password(SERVICE, key)
         except (PasswordDeleteError, KeyringError):

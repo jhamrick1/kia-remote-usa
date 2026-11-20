@@ -5,9 +5,9 @@ What protects your car, layer by layer, and what each one does and doesn't stop.
 ## The path a request takes
 
 ```
-phone ──HTTPS──> Cloudflare edge ──> Cloudflare Access ──> tunnel ──> your PC 127.0.0.1:8765 ──> Kia
-                                      (who are you?)       (outbound      (checks Access again,
-                                                            from the PC)   then PIN/passkey for unlock)
+phone ──HTTPS──> Cloudflare edge ──> Cloudflare Access ──> tunnel ──> your computer 127.0.0.1:8765 ──> Kia
+                                      (who are you?)       (outbound            (checks Access again,
+                                                            from it)             then PIN/passkey for unlock)
 ```
 
 1. **No open port.** The service listens on `127.0.0.1` only, never `0.0.0.0`. The Cloudflare
@@ -49,7 +49,7 @@ phone ──HTTPS──> Cloudflare edge ──> Cloudflare Access ──> tunne
 | Access to an email inbox your Access policy allows | Pass Access, then get stuck at "Approve this device". **Nothing about the car** |
 | That inbox **and** your Kia email, password and PIN | Approve their browser, then everything, including unlock. Removing their device in the menu shuts them out again |
 | Your unlocked phone (already approved, Access session still valid) | Lock, climate, lights, status and location. **Unlock still asks** for the fingerprint or PIN. Remove the phone under Approved devices from another device or the PC |
-| Admin access to your PC | Everything. The PC holds the Kia session |
+| Admin access to the computer running the service (or a Pi's SD card) | Everything. That computer holds the Kia session |
 
 **Takeaway: your email account plus your Kia password are the keys.** Access's code and Kia's
 new-device code both go to your email, and approving a new browser takes the Kia password and PIN. Turn on two-factor authentication (an authenticator app or a security key, not SMS)
@@ -66,18 +66,28 @@ on that email account, and allow only the emails you need in the Access policy.
 - **One hostname per application.** If you add another hostname to the tunnel, give it its own
   Access application. The service refuses a token whose `aud` isn't yours anyway.
 
-## Secrets on the PC
+## Secrets on the computer
 
-- The Kia email, password, PIN and session token are stored **only in Windows Credential
-  Manager** (service name `kia-remote`), encrypted with your Windows login. They are never written
-  to a file, never logged and never returned by the API. Every secret is also scrubbed from log
+- The Kia email, password, PIN and session token are kept in the computer's own password store:
+  - **Windows:** Credential Manager (service name `kia-remote`), encrypted with your Windows
+    login.
+  - **macOS:** the login Keychain, encrypted and unlocked by your login.
+  - **Raspberry Pi / Linux:** `secrets.json` in the data folder, readable only by the service's
+    user (mode 600, in a folder that is mode 700). It is **not encrypted**: root, or anyone with
+    the SD card, can read it. A headless machine has no password store that a background service
+    can unlock without a person typing a password at boot, so this is the trade-off. Home
+    Assistant makes the same one. Keep the Pi private, use SSH keys, and use full-disk
+    encryption if that matters to you. You can force either kind with `"secret_store"` in
+    settings.json.
+- Secrets are never logged and never returned by the API. Every secret is also scrubbed from log
   lines (`[hidden]`), because the underlying library logs whole responses at debug level. The
   library is kept at WARNING.
-- `%LOCALAPPDATA%\kia-remote\` holds non-secret files: settings, presets, schedules, the command
-  log, passkey *public* keys and the service log.
+- The data folder otherwise holds non-secret files: settings, presets, schedules, the command
+  log, approved devices (token hashes), passkey *public* keys and the service log.
 - There are no `.env` files and no API keys in the repository. The Access values in
-  `settings.json` are identifiers, not secrets.
-- "Sign out" in the dashboard deletes all saved Kia credentials.
+  `settings.json` are identifiers, not secrets. The **cloudflared tunnel token** is a secret:
+  whoever has it can run your tunnel. It's stored by the cloudflared service, not by this app.
+- "Sign out of Kia" in the menu deletes all saved Kia credentials.
 
 ## The browser side
 

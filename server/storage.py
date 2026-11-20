@@ -1,10 +1,11 @@
-"""Presets and the command log, as JSON files in %LOCALAPPDATA%\\kia-remote\\."""
+"""Presets and the command log, as JSON files in the data folder (see default_data_dir)."""
 
 from __future__ import annotations
 
 import copy
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,14 @@ DEFAULT_PRESETS: list[dict[str, Any]] = [
 
 
 def default_data_dir() -> Path:
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    """Windows: %LOCALAPPDATA%/kia-remote. macOS: ~/Library/Application Support/kia-remote.
+    Linux: $XDG_DATA_HOME/kia-remote (normally ~/.local/share/kia-remote)."""
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    elif sys.platform == "darwin":
+        base = str(Path.home() / "Library" / "Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(base) / "kia-remote"
 
 

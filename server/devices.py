@@ -41,9 +41,9 @@ MAX_DEVICES = 50
 
 NEEDS = "device"
 MSG_NEEDED = "This browser hasn't been approved for the car yet."
-MSG_WRONG = "That doesn't match the Kia account saved on the PC."
+MSG_WRONG = "That doesn't match the Kia account saved on the computer."
 MSG_LOCKED = "Too many wrong tries. Approving a new device is paused for {minutes} minutes."
-MSG_PC_SIGNED_OUT = "The PC isn't signed in to Kia. Sign in to Kia to approve this device."
+MSG_PC_SIGNED_OUT = "The car service isn't signed in to Kia. Sign in to Kia to approve this device."
 
 
 def _hash(text: str) -> str:

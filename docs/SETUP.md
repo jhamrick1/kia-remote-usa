@@ -1,26 +1,26 @@
 # Detailed setup
 
-The README has the short version. This page covers every step, including the parts that are
-easy to get wrong.
+The README has the short version. This page covers every step on Windows, macOS and Raspberry Pi,
+including the parts that are easy to get wrong.
 
-## 1. Prepare the PC
+The computer you install this on is the "server". Your phone talks to it, and it talks to Kia,
+so it has to be on whenever you want to use the app.
 
-The PC is the "server". Your phone talks to it, and it talks to Kia. It has to be on and signed
-in whenever you want to use the app.
+> Windows is tested daily. macOS and Raspberry Pi are supported but haven't been tried on real
+> hardware yet. If something here doesn't match what you see, please open an issue.
 
-- **Windows 10 or 11.** Secrets go into Windows Credential Manager (see SECURITY.md).
+## 1. Prepare the computer
+
+### Windows 10 / 11
+
 - **Python 3.12+** from python.org. Tick "Add python.exe to PATH" during install.
-- **Node.js LTS** from nodejs.org. It's only used to run `npx wrangler` for the tunnel.
 - **Git**, to clone the repository.
-- **Power settings:** Settings > System > Power > set "When plugged in, put my device to sleep
-  after" to **Never**. A sleeping PC means an app that doesn't answer. Turning the screen off is
-  fine.
-- **Signing in after a reboot:** the service starts at **logon** (a scheduled task for your
-  user), not at boot. After Windows Update restarts the PC, it waits until someone signs in. If
-  that matters to you, see "Start without signing in" at the end of this page.
+- **Node.js LTS** from nodejs.org, only if you'll run the tunnel with `npx wrangler` (step 4b).
+- **Power:** Settings > System > Power > "When plugged in, put my device to sleep after" >
+  **Never**. Turning the screen off is fine.
 
 ```powershell
-git clone <this repo> kia-remote
+git clone https://github.com/kobkob88/kia-remote-public kia-remote
 cd kia-remote
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
@@ -28,27 +28,73 @@ py -m venv .venv
 .venv\Scripts\python.exe -m server --demo   # http://localhost:8765, a fake car
 ```
 
+### macOS
+
+- **Python 3.12+**: from python.org, or `brew install python@3.13` with
+  [Homebrew](https://brew.sh).
+- **Git** comes with the Xcode command-line tools (`xcode-select --install`).
+- **Power:** a desktop Mac (mini, iMac, Studio) is the best fit. In System Settings > Energy (or
+  Battery > Options on a laptop), turn on **Prevent automatic sleeping when the display is off**.
+  A closed MacBook lid sleeps unless a display is connected.
+
+```bash
+git clone https://github.com/kobkob88/kia-remote-public kia-remote
+cd kia-remote
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest
+.venv/bin/python -m server --demo           # http://localhost:8765
+```
+
+Secrets go into your login **Keychain**. The first time the service saves them, macOS may ask
+whether Python can use the Keychain. Choose **Always Allow**, or the service will keep asking
+after each restart.
+
+### Raspberry Pi (or any Linux)
+
+- **A Pi 4 or Pi 5** with Raspberry Pi OS **64-bit**. The current release, based on Debian 13
+  "Trixie", ships Python 3.13. The older "Bookworm" release ships 3.11, which is too old: reflash
+  with the current release, or install a newer Python with [uv](https://docs.astral.sh/uv/).
+- A wired connection or reliable Wi-Fi, and a good power supply. Undervoltage makes a Pi flaky.
+- Everything below runs over SSH, so no screen is needed.
+
+```bash
+sudo apt update && sudo apt install -y git python3-venv
+git clone https://github.com/kobkob88/kia-remote-public kia-remote
+cd kia-remote
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt   # a few minutes on a Pi
+.venv/bin/python -m pytest
+.venv/bin/python -m server --demo           # http://localhost:8765 on the Pi
+```
+
+To look at the demo from your laptop, forward the port over SSH:
+`ssh -L 8765:127.0.0.1:8765 pi@raspberrypi.local`, then open http://localhost:8765 on the laptop.
+
+**Where the Kia password goes on a Pi:** a headless Pi has no password store that a background
+service can unlock, so the secrets go in `~/.local/share/kia-remote/secrets.json`, readable only
+by your user (mode 600). That is the same approach Home Assistant takes. Anyone with root on the
+Pi, or with the SD card in hand, can read it. Keep the Pi somewhere private, use SSH keys instead
+of a password, and don't share the user account.
+
 ## 2. Check your Kia account (optional, recommended)
 
-```powershell
-.venv\Scripts\python.exe scripts\check_connection.py
+```bash
+.venv/bin/python scripts/check_connection.py          # Windows: .venv\Scripts\python.exe scripts\check_connection.py
 ```
 
 It asks for your email, password and PIN (typed in, never saved), signs in, and prints your car's
-status without waking it. Paste with **right-click**, not Ctrl+V: in some Windows terminals
-Ctrl+V adds an invisible character, and a wrong password counts toward Kia's lockout. The script
-checks for that before contacting Kia.
+status without waking it. On Windows, paste with **right-click**, not Ctrl+V: in some Windows
+terminals Ctrl+V adds an invisible character, and a wrong password counts toward Kia's lockout.
+The script checks for that before contacting Kia.
 
 ## 3. First real sign-in
 
-```powershell
-.venv\Scripts\python.exe -m server
-```
-
-Open **http://localhost:8765** on the PC. Use `localhost`, not `127.0.0.1`: passkeys need a
-name. Sign in with your Kia Connect email, password and PIN. Kia sends a one-time code by email
-or SMS because it sees a new device. After that the session is saved in Credential Manager and
-reused, so restarts don't ask again.
+Start the service without `--demo` and open **http://localhost:8765** on that computer. Use
+`localhost`, not `127.0.0.1`, because passkeys need a name. (On a Pi, use the SSH port forward
+from step 1.) Sign in with your Kia Connect email, password and PIN. Kia sends a one-time code by
+email or SMS because it sees a new device. After that the session is saved and reused, so
+restarts don't ask again.
 
 ## 4. Cloudflare: domain, tunnel, Access
 
@@ -63,17 +109,24 @@ In the Cloudflare dashboard, open **Zero Trust**. The first time, it asks you to
 
 ### 4b. The tunnel
 
-1. **Zero Trust > Networks > Tunnels > Create a tunnel**, type *Cloudflared*, and name it
-   `kia-remote`. `scripts/start.ps1` runs it by that name.
-2. Add a **public hostname**. Subdomain `car`, your domain, service type **HTTP**, URL
-   **`127.0.0.1:8765`**. Cloudflare creates the DNS record for you.
-3. On the PC, sign wrangler in to your Cloudflare account once:
-   `npx --yes wrangler@4 login`. The tunnel then runs with
-   `npx --yes wrangler@4 tunnel run kia-remote`, which is what `start.ps1` does.
+1. **Zero Trust > Networks > Tunnels > Create a tunnel**, type *Cloudflared*, name it
+   `kia-remote`.
+2. Cloudflare shows install commands for each operating system. They install `cloudflared` as a
+   **system service**, which starts at boot, with a token that ties it to this tunnel:
+   - **Windows:** download the installer it links, then run in an administrator PowerShell
+     `cloudflared.exe service install <token>`.
+   - **macOS:** `brew install cloudflared`, then `sudo cloudflared service install <token>`.
+   - **Raspberry Pi / Linux (Debian):** pick "Debian" and **arm64**. It adds Cloudflare's apt
+     repository and runs `sudo cloudflared service install <token>`.
 
-   *Alternative:* the tunnel page also shows a `cloudflared service install <token>` command.
-   That installs cloudflared as a Windows service that runs at boot without anyone signed in.
-   If you use it, delete the tunnel lines from `start.ps1`.
+   Treat the token like a password: it lets anyone run your tunnel.
+3. Add a **public hostname**: subdomain `car`, your domain, service type **HTTP**, URL
+   **`127.0.0.1:8765`**. Cloudflare creates the DNS record for you.
+
+*Windows alternative:* `scripts\start.ps1` can run the tunnel itself with
+`npx wrangler tunnel run kia-remote` (that needs Node.js and a one-time `npx wrangler login`). If
+you installed the cloudflared service above, delete the tunnel lines from `start.ps1` so the
+tunnel isn't run twice.
 
 ### 4c. Access (who may open the app)
 
@@ -88,8 +141,13 @@ In the Cloudflare dashboard, open **Zero Trust**. The first time, it asks you to
 
 ### 4d. Tell the service about Access
 
-Create `%LOCALAPPDATA%\kia-remote\settings.json`. Paste that path in Explorer's address bar to
-open the folder.
+Create `settings.json` in the data folder:
+
+| | Data folder |
+|---|---|
+| Windows | `%LOCALAPPDATA%\kia-remote\` (paste that into Explorer's address bar) |
+| macOS | `~/Library/Application Support/kia-remote/` |
+| Raspberry Pi / Linux | `~/.local/share/kia-remote/` |
 
 ```json
 {
@@ -117,51 +175,69 @@ storage, separate from Safari, so do this in the home-screen app. Then: Unlock >
 tick **Use fingerprint next time**.
 
 For a family member's phone, enter the account on their phone yourself. They don't need to know
-the password. You can remove any phone later under **Approved devices** in the menu. From then on,
-unlocking uses Face ID or your fingerprint.
+the password. You can remove any phone later under **Approved devices** in the menu.
 
-## 6. Start with Windows
+## 6. Start automatically
+
+### Windows
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-startup.ps1
 ```
 
 This registers a scheduled task called `kia-remote`, for your user, at logon, with no admin
-rights needed. It runs `scripts\start.ps1` hidden, which:
+rights needed. It runs `scripts\start.ps1` hidden, which starts the service (and the tunnel, if
+you use the wrangler way), checks every 30 seconds and restarts whatever stopped. It logs to
+`%LOCALAPPDATA%\kia-remote\start.log`. To remove it:
+`Unregister-ScheduledTask -TaskName kia-remote -Confirm:$false`.
 
-- starts the service (`.venv\Scripts\python.exe -m server`) and the tunnel
-  (`npx wrangler tunnel run kia-remote`);
-- checks every 30 seconds and restarts whichever one stopped;
-- logs to `%LOCALAPPDATA%\kia-remote\start.log`. The service keeps its own `server.log` there.
+The task needs a signed-in user, because Credential Manager is tied to your Windows login. After
+Windows Update restarts the PC, the app stays down until someone signs in. Automatic sign-in
+solves that, at the cost that anyone holding the PC is signed in.
 
-To **update** after a `git pull`: end the `python.exe` process listening on port 8765 (Task
-Manager, or `Get-NetTCPConnection -LocalPort 8765 | % { Stop-Process -Id $_.OwningProcess }`).
-`start.ps1` brings it back within 30 seconds. Changes to `web/` alone need no restart; the
-phones pick them up on their next load.
+### macOS
 
-To **remove**: `Unregister-ScheduledTask -TaskName kia-remote -Confirm:$false`.
+```bash
+bash scripts/macos/install-agent.sh
+```
 
-## Start without signing in (optional)
+This installs a LaunchAgent (`~/Library/LaunchAgents/com.kia-remote.server.plist`) that starts
+the service when you log in and restarts it if it stops. Like on Windows, it runs while you're
+logged in, because the Keychain unlocks with your login. To remove it:
+`launchctl bootout gui/$(id -u)/com.kia-remote.server` and delete the plist.
 
-The scheduled task needs a signed-in user, because Credential Manager is tied to your Windows
-login. Two options:
+### Raspberry Pi / Linux
 
-- Turn on automatic sign-in for this PC. It's convenient, but anyone with the PC in hand is
-  signed in.
-- Run cloudflared as a Windows service (4b alternative) and accept that the app is unreachable
-  until someone signs in after a reboot.
+```bash
+bash scripts/linux/install-service.sh
+```
 
-## Raspberry Pi or Linux
+This installs a systemd service (`kia-remote`) that starts **at boot**, with no login needed, and
+restarts it if it stops. It runs as your user, with the rest of the system read-only to it.
+Useful commands:
 
-**Not supported yet.** Here's what a port needs, and it would make a welcome pull request:
+```bash
+systemctl status kia-remote          # is it running?
+journalctl -u kia-remote -f          # live log
+sudo systemctl restart kia-remote    # after a git pull or a settings change
+```
 
-- **Secrets:** `server/secrets_store.py` uses `keyring`. On a desktop Linux that's the Secret
-  Service (GNOME Keyring or KWallet). A headless Pi has neither, so it needs another backend, for
-  example an encrypted file whose key isn't stored next to it. Be careful here: this is where
-  the Kia password lives.
-- **Data folder:** `server/storage.py` uses `%LOCALAPPDATA%`. On Linux it should be
-  `~/.local/share/kia-remote` (or `$XDG_DATA_HOME`).
-- **Startup:** `scripts/start.ps1` would become two systemd units, one for the service and one
-  for `cloudflared` (installed as a service with the tunnel token).
-- The Python service and the dashboard have no Windows-only code beyond those two points, so a
-  Pi 4 or newer should be plenty. Nobody has tried it yet.
+To remove it:
+`sudo systemctl disable --now kia-remote && sudo rm /etc/systemd/system/kia-remote.service`.
+
+## Updating
+
+```bash
+git pull
+.venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\python.exe -m pip ...
+```
+
+Then restart the service:
+
+- **Windows:** end the `python.exe` listening on port 8765 (Task Manager, or
+  `Get-NetTCPConnection -LocalPort 8765 | % { Stop-Process -Id $_.OwningProcess }`).
+  `start.ps1` brings it back within 30 seconds.
+- **macOS:** `launchctl kickstart -k gui/$(id -u)/com.kia-remote.server`.
+- **Raspberry Pi / Linux:** `sudo systemctl restart kia-remote`.
+
+Changes to `web/` alone need no restart; the phones pick them up on their next load.

@@ -26,6 +26,7 @@ from .errors import ServiceError
 from .kia import KiaCar
 from .schedules import Scheduler
 from .secrets_store import RedactingFilter, SecretStore
+from .secrets_store import default_kind as secrets_default_kind
 from .service import CarService
 from .storage import Storage, default_data_dir
 from .unlock_guard import PasskeyStore, UnlockGuard
@@ -86,6 +87,16 @@ async def _body(request: Request) -> Any:
         raise ServiceError(400, "The request body must be JSON.") from None
 
 
+def _secret_store(settings: dict[str, Any], data_dir: Path) -> SecretStore:
+    """Where the Kia password lives: the system password store, or secrets.json (see secrets_store)."""
+    kind = str(settings.get("secret_store") or secrets_default_kind()).strip().lower()
+    if kind not in ("keyring", "file"):
+        raise ValueError('"secret_store" in settings.json must be "keyring" or "file".')
+    log.info("Kia secrets are kept in %s.", "secrets.json (this user only)" if kind == "file"
+             else "the system password store")
+    return SecretStore(data_dir / "secrets.json" if kind == "file" else None)
+
+
 def _error(status: int, message: str, extra: dict[str, Any] | None = None) -> JSONResponse:
     return JSONResponse({"error": message, **(extra or {})}, status_code=status)
 
@@ -104,7 +115,7 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
         settings = load_settings(data_dir)
     if backend is None:
         backend = (DemoCar(demo_delay, demo_refresh_delay) if demo
-                   else KiaCar(SecretStore(), region=regions.get(settings.get("region"))))
+                   else KiaCar(_secret_store(settings, data_dir), region=regions.get(settings.get("region"))))
     if getattr(backend, "region", None) is not None and backend.region.cache_dir is None:
         backend.region.cache_dir = data_dir
     kwargs = {} if force_interval is None else {"force_interval": force_interval}
