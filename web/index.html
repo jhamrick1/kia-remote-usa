@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a1622">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Car Remote" id="app-title">
+  <meta name="format-detection" content="telephone=no">
+  <title>Car Remote</title>
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="app.css">
+  <script src="boot.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="ident">
+      <div class="ident-row">
+        <h1 class="car-name" id="car-name" data-t="app.name"></h1>
+        <span class="demo-badge" id="demo-badge" data-t="app.demo" hidden></span>
+      </div>
+      <p class="updated" id="updated"></p>
+    </div>
+    <button class="icon-btn" id="refresh-btn" type="button" data-t-aria="refresh.label">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+    </button>
+    <button class="icon-btn" id="menu-btn" type="button" data-t-aria="menu.label">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="ico-fill" cx="5" cy="12" r="1.8"/><circle class="ico-fill" cx="12" cy="12" r="1.8"/><circle class="ico-fill" cx="19" cy="12" r="1.8"/></svg>
+    </button>
+  </header>
+
+  <p class="banner" id="banner" hidden></p>
+
+  <div class="boot" id="boot"><span class="boot-dot"></span><span data-t="app.loading"></span></div>
+
+  <main class="dash" id="dash" hidden>
+    <div class="col-car">
+      <section class="hero" aria-labelledby="car-name">
+        <div class="car-stage" id="car-stage">
+          <div class="car-glow" aria-hidden="true"></div>
+          <!-- Kia's own picture of this car; the drawing below stands in while something is open -->
+          <div class="car-photo" id="car-photo" hidden><img class="photo-base" id="car-photo-img" alt="" decoding="async"></div>
+          <svg class="car" id="car" viewBox="0 0 240 440" role="img" aria-labelledby="car-summary">
+            <title id="car-summary"></title>
+            <!-- wheels sit under the body -->
+            <g class="wheels">
+              <rect x="36" y="86" width="16" height="50" rx="6"/>
+              <rect x="188" y="86" width="16" height="50" rx="6"/>
+              <rect x="36" y="318" width="16" height="50" rx="6"/>
+              <rect x="188" y="318" width="16" height="50" rx="6"/>
+            </g>
+            <!-- mirrors -->
+            <path class="mirror" d="M50 150 L33 143 Q29 150 33 158 L50 160 Z"/>
+            <path class="mirror" d="M190 150 L207 143 Q211 150 207 158 L190 160 Z"/>
+            <!-- body shell -->
+            <path class="body" d="M68 38 Q120 20 172 38 Q186 46 189 70 Q194 100 193 140 L193 336 Q193 384 183 402 Q120 420 57 402 Q47 384 47 336 L47 140 Q46 100 51 70 Q54 46 68 38 Z"/>
+            <path class="part hood" id="car-hood" d="M72 46 Q120 32 168 46 Q178 58 181 84 Q184 106 182 128 Q120 117 58 128 Q56 106 59 84 Q62 58 72 46 Z"/>
+            <path class="light head" d="M66 44 Q74 37 88 34"/>
+            <path class="light head" d="M174 44 Q166 37 152 34"/>
+            <path class="glass windshield" d="M60 140 Q120 127 180 140 L171 186 Q120 177 69 186 Z"/>
+            <rect class="roof" x="70" y="190" width="100" height="136" rx="16"/>
+            <rect class="part sunroof" id="car-sunroof" x="86" y="200" width="68" height="62" rx="9"/>
+            <path class="glass rear-glass" d="M71 330 Q120 337 169 330 L175 360 Q120 369 65 360 Z"/>
+            <path class="part trunk" id="car-trunk" d="M60 366 Q120 377 180 366 Q186 380 183 394 Q120 411 57 394 Q54 380 60 366 Z"/>
+            <path class="light tail" d="M58 398 Q62 406 78 410"/>
+            <path class="light tail" d="M182 398 Q178 406 162 410"/>
+            <!-- doors swing out from their front hinge; the side glass rides with the door -->
+            <g class="door door-left" id="car-door-front_left">
+              <path class="door-panel" d="M47 156 L66 156 L66 252 L47 252 Z"/>
+              <path class="part window" id="car-window-front_left" d="M60 166 L66 166 L66 244 L60 244 Z"/>
+            </g>
+            <g class="door door-right" id="car-door-front_right">
+              <path class="door-panel" d="M174 156 L193 156 L193 252 L174 252 Z"/>
+              <path class="part window" id="car-window-front_right" d="M174 166 L180 166 L180 244 L174 244 Z"/>
+            </g>
+            <g class="door door-left" id="car-door-rear_left">
+              <path class="door-panel" d="M47 256 L66 256 L66 334 L47 334 Z"/>
+              <path class="part window" id="car-window-rear_left" d="M60 264 L66 264 L66 318 L60 318 Z"/>
+            </g>
+            <g class="door door-right" id="car-door-rear_right">
+              <path class="door-panel" d="M174 256 L193 256 L193 334 L174 334 Z"/>
+              <path class="part window" id="car-window-rear_right" d="M174 264 L180 264 L180 318 L174 318 Z"/>
+            </g>
+            <!-- tire pressure dots -->
+            <circle class="tire" id="car-tire-front_left" cx="22" cy="111" r="5"/>
+            <circle class="tire" id="car-tire-front_right" cx="218" cy="111" r="5"/>
+            <circle class="tire" id="car-tire-rear_left" cx="22" cy="343" r="5"/>
+            <circle class="tire" id="car-tire-rear_right" cx="218" cy="343" r="5"/>
+          </svg>
+        </div>
+        <div class="hero-status">
+          <p class="lock-status" id="lock-status">
+            <svg class="lock-ico" viewBox="0 0 24 24" aria-hidden="true">
+              <rect class="ico" x="5" y="11" width="14" height="10" rx="2.5"/>
+              <path class="ico shackle" d="M8 11V8a4 4 0 0 1 8 0v3"/>
+            </svg>
+            <span id="lock-text"></span>
+          </p>
+          <p class="open-status" id="open-status"></p>
+        </div>
+      </section>
+
+      <section class="actions" data-t-aria="controls">
+        <div class="lock-pair">
+          <button class="act act-lock" id="act-lock" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="ico" x="5" y="11" width="14" height="10" rx="2.5"/><path class="ico" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <span data-t="action.lock"></span>
+          </button>
+          <button class="act act-unlock" id="act-unlock" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect class="ico" x="5" y="11" width="14" height="10" rx="2.5"/><path class="ico" d="M8 11V8a4 4 0 0 1 7.8-1.2"/></svg>
+            <span data-t="action.unlock"></span>
+          </button>
+        </div>
+        <button class="act act-climate" id="act-climate" type="button">
+          <svg class="fan" viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M12 12c0-4 1-8 4-8s3 4-4 8Zm0 0c4 0 8 1 8 4s-4 3-8-4Zm0 0c0 4-1 8-4 8s-3-4 4-8Zm0 0c-4 0-8-1-8-4s4-3 8 4Z"/></svg>
+          <span class="act-text">
+            <span class="act-label" id="act-climate-label"></span>
+            <span class="act-sub" id="act-climate-sub"></span>
+          </span>
+        </button>
+        <div class="minor-pair">
+          <button class="act act-minor" id="act-horn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M4 10v4h3l5 4V6L7 10H4Zm12-1.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>
+            <span data-t="action.horn_lights"></span>
+          </button>
+          <button class="act act-minor" id="act-hazard" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M12 4 21 19H3L12 4Zm0 5 4.3 7.5H7.7L12 9Z"/></svg>
+            <span data-t="action.hazard"></span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-info">
+      <section class="warnings" id="warnings" hidden aria-labelledby="warn-title">
+        <h2 class="visually-hidden" id="warn-title" data-t="warn.title"></h2>
+        <ul class="warn-list" id="warn-list"></ul>
+      </section>
+
+      <section class="panel climate-panel" aria-labelledby="climate-title">
+        <div class="panel-head">
+          <h2 id="climate-title" data-t="climate.title"></h2>
+          <p class="panel-note" id="climate-note"></p>
+        </div>
+        <div class="presets" id="presets"></div>
+        <p class="sched-foot" data-t="climate.edit.hint"></p>
+      </section>
+
+      <section class="panel sched-panel" aria-labelledby="sched-title">
+        <div class="panel-head">
+          <h2 id="sched-title" data-t="sched.title"></h2>
+          <p class="panel-note" id="sched-next"></p>
+        </div>
+        <ul class="sched-list" id="sched-list"></ul>
+        <button class="btn-secondary sched-add" id="sched-add" type="button" data-t="sched.add"></button>
+        <p class="sched-foot" data-t="sched.foot"></p>
+      </section>
+
+      <section class="panel gauges" aria-labelledby="gauge-title">
+        <h2 class="visually-hidden" id="gauge-title" data-t="gauge.fuel"></h2>
+        <div class="fuel">
+          <svg class="fuel-arc" viewBox="0 0 120 120" aria-hidden="true">
+            <path class="arc-track" pathLength="100" d="M24.6 95.4 A50 50 0 1 1 95.4 95.4"/>
+            <path class="arc-value" id="fuel-arc" pathLength="100" d="M24.6 95.4 A50 50 0 1 1 95.4 95.4"/>
+          </svg>
+          <div class="fuel-readout">
+            <span class="fuel-pct"><span class="fig" id="fuel-pct"></span><span class="unit" data-t="unit.percent"></span></span>
+            <span class="fuel-label" data-t="gauge.fuel"></span>
+          </div>
+          <div class="range">
+            <span class="range-label" data-t="gauge.range"></span>
+            <span class="range-value"><span class="fig" id="range-km"></span> <span class="unit" data-t="unit.km"></span></span>
+          </div>
+        </div>
+        <dl class="tiles">
+          <div class="tile">
+            <dt data-t="gauge.battery"></dt>
+            <dd><span class="fig" id="batt-pct"></span><span class="unit" data-t="unit.percent"></span></dd>
+            <div class="bar" aria-hidden="true"><span class="bar-fill" id="batt-bar"></span></div>
+          </div>
+          <div class="tile">
+            <dt data-t="gauge.outside"></dt>
+            <dd><span class="fig" id="outside-c"></span><span class="unit" data-t="unit.c"></span></dd>
+          </div>
+          <div class="tile">
+            <dt data-t="gauge.odometer"></dt>
+            <dd><span class="fig" id="odo-km"></span> <span class="unit" data-t="unit.km"></span></dd>
+          </div>
+          <div class="tile">
+            <dt data-t="gauge.service"></dt>
+            <dd><span class="fig" id="service-km"></span> <span class="unit" data-t="unit.km"></span></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel location" aria-labelledby="loc-title">
+        <div class="loc-pin" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path class="ico" d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z"/><circle class="ico" cx="12" cy="10" r="2.3"/></svg>
+        </div>
+        <div class="loc-body">
+          <h2 id="loc-title" data-t="loc.title"></h2>
+          <p class="loc-coords fig" id="loc-coords"></p>
+          <p class="loc-seen" id="loc-seen"></p>
+        </div>
+        <a class="loc-open" id="loc-open" target="_blank" rel="noopener" hidden data-t="loc.open"></a>
+      </section>
+
+      <section class="panel activity" aria-labelledby="log-title">
+        <div class="panel-head"><h2 id="log-title" data-t="log.title"></h2></div>
+        <ol class="log" id="log"></ol>
+        <p class="log-empty" id="log-empty" data-t="log.empty" hidden></p>
+      </section>
+    </div>
+  </main>
+
+  <main class="auth" id="auth" hidden>
+    <img class="auth-mark" src="icons/icon.svg" alt="" width="72" height="72">
+
+    <form class="auth-card" id="login-form" hidden novalidate>
+      <h2 id="login-title" data-t="auth.title"></h2>
+      <p class="auth-lead" id="login-lead" data-t="auth.lead"></p>
+      <label class="field">
+        <span data-t="auth.email"></span>
+        <input id="login-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required>
+      </label>
+      <label class="field">
+        <span data-t="auth.password"></span>
+        <span class="field-row">
+          <input id="login-password" type="password" autocomplete="current-password" required>
+          <button class="field-btn" id="pw-toggle" type="button" data-t="auth.show"></button>
+        </span>
+      </label>
+      <label class="field">
+        <span data-t="auth.pin"></span>
+        <input id="login-pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+        <small data-t="auth.pin.hint"></small>
+      </label>
+      <p class="note note-safe">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M12 3 5 6v5c0 4.5 3 8.4 7 10 4-1.6 7-5.5 7-10V6l-7-3Z"/></svg>
+        <span id="login-saved" data-t="auth.saved"></span>
+      </p>
+      <p class="note note-warn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M12 4 21 19H3L12 4Zm0 6v4m0 2.5v.5"/></svg>
+        <span id="login-lockout" data-t="auth.lockout"></span>
+      </p>
+      <p class="form-error" id="login-error" role="alert" hidden></p>
+      <button class="btn-primary" id="login-submit" type="submit" data-t="auth.submit"></button>
+    </form>
+
+    <form class="auth-card" id="otp-form" hidden novalidate>
+      <h2 data-t="otp.title"></h2>
+      <p class="auth-lead" data-t="otp.lead"></p>
+      <div class="segmented" role="radiogroup">
+        <label class="seg"><input type="radio" name="otp-method" value="EMAIL" id="otp-email"><span data-t="otp.email"></span></label>
+        <label class="seg"><input type="radio" name="otp-method" value="SMS" id="otp-sms"><span data-t="otp.sms"></span></label>
+      </div>
+      <button class="btn-secondary" id="otp-send" type="button" data-t="otp.send"></button>
+      <p class="note" id="otp-sent" hidden data-t="otp.sent"></p>
+      <label class="field">
+        <span data-t="otp.code"></span>
+        <input id="otp-code" class="pin" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8">
+      </label>
+      <p class="form-error" id="otp-error" role="alert" hidden></p>
+      <button class="btn-primary" id="otp-submit" type="submit" data-t="otp.verify"></button>
+    </form>
+
+    <div class="auth-card" id="autherr" hidden>
+      <h2 data-t="autherr.title"></h2>
+      <p class="auth-lead" id="autherr-msg"></p>
+      <button class="btn-primary" id="autherr-retry" type="button" data-t="autherr.retry"></button>
+      <button class="btn-secondary" id="autherr-relogin" type="button" data-t="autherr.relogin"></button>
+    </div>
+  </main>
+
+  <div class="cmd-status" id="cmd-status" role="status" aria-live="polite" hidden>
+    <span class="cmd-ico" id="cmd-ico" aria-hidden="true"></span>
+    <span class="cmd-text">
+      <span class="cmd-title" id="cmd-title"></span>
+      <span class="cmd-sub" id="cmd-sub"></span>
+    </span>
+    <span class="cmd-time fig" id="cmd-time"></span>
+    <button class="cmd-close" id="cmd-close" type="button" data-t-aria="cmd.dismiss" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+
+  <dialog class="sheet" id="confirm-sheet" aria-labelledby="confirm-title">
+    <form method="dialog" class="sheet-body">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <h2 id="confirm-title" data-t="confirm.unlock.title"></h2>
+      <p class="sheet-text" data-t="confirm.unlock.body"></p>
+      <div class="sheet-actions">
+        <button class="btn-secondary" value="cancel" data-t="confirm.cancel"></button>
+        <button class="btn-primary btn-warm" value="ok" id="confirm-ok" data-t="confirm.unlock.yes"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="pin-sheet" aria-labelledby="pin-title">
+    <form method="dialog" class="sheet-body" id="pin-form" novalidate>
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <h2 id="pin-title"></h2>
+      <p class="sheet-text" id="pin-text"></p>
+      <label class="field">
+        <span data-t="pin.label"></span>
+        <input id="pin-input" class="pin pin-masked" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      </label>
+      <label class="switch-row" id="pin-remember-row" hidden>
+        <span class="switch-text"><span data-t="pin.remember"></span><small data-t="pin.remember.sub"></small></span>
+        <input type="checkbox" class="switch" id="pin-remember">
+      </label>
+      <p class="form-error" id="pin-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button class="btn-secondary" type="button" id="pin-cancel" data-t="confirm.cancel"></button>
+        <button class="btn-primary btn-warm" type="submit" id="pin-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+    <form method="dialog" class="sheet-body">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <h2 id="menu-title" data-t="menu.title"></h2>
+      <button class="menu-item" value="wake" id="menu-wake">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z"/></svg>
+        <span class="menu-text"><span data-t="menu.wake"></span><small data-t="menu.wake.note"></small></span>
+      </button>
+      <button class="menu-item menu-passkey" value="passkey" id="menu-passkey" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M7.5 18.5c1-1.6 1.5-3.6 1.5-6.5a3 3 0 0 1 6 0c0 1.2-.1 2.3-.3 3.3M12 12c0 3.4-.8 6-2.2 8M5.3 15.5c.5-1.1.7-2.3.7-3.5a6 6 0 0 1 10.6-3.9M18 12c0 2.7-.4 5-1.2 7M14.6 18.8c.3-.7.5-1.5.7-2.3"/></svg>
+        <span class="menu-text"><span data-t="menu.passkey"></span><small id="menu-passkey-note"></small></span>
+        <span class="menu-state" id="menu-passkey-state"></span>
+      </button>
+      <button class="menu-item" value="devices" id="menu-devices">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm3 15h2"/></svg>
+        <span class="menu-text"><span data-t="menu.devices"></span><small data-t="menu.devices.note"></small></span>
+      </button>
+      <button class="menu-item menu-quiet" value="logout" id="menu-logout">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg>
+        <span class="menu-text"><span data-t="menu.logout"></span><small data-t="menu.logout.note"></small></span>
+      </button>
+      <button class="btn-secondary" value="cancel" data-t="menu.cancel"></button>
+      <p class="menu-version" id="menu-version"></p>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="devices-sheet" aria-labelledby="devices-title">
+    <form method="dialog" class="sheet-body">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <h2 id="devices-title" data-t="devices.title"></h2>
+      <p class="sheet-text" data-t="devices.lead"></p>
+      <ul class="device-list" id="device-list"></ul>
+      <p class="form-error" id="devices-error" role="alert" hidden></p>
+      <button class="btn-secondary" value="cancel" data-t="menu.cancel"></button>
+    </form>
+  </dialog>
+
+  <dialog class="sheet sheet-tall" id="climate-sheet" aria-labelledby="cs-title">
+    <form method="dialog" class="sheet-body" id="cs-form">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="cs-title" data-t="climate.sheet.title"></h2>
+        <button class="icon-btn" value="cancel" data-t-aria="climate.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="temp" id="cs-temp-box">
+        <button class="step step-cool" type="button" id="cs-temp-down" data-t-aria="climate.temp.down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 12h12"/></svg>
+        </button>
+        <div class="temp-read">
+          <span class="temp-label" data-t="climate.temp"></span>
+          <output class="temp-value" id="cs-temp" aria-live="polite"></output>
+          <div class="temp-scale" aria-hidden="true"><span class="temp-mark" id="cs-temp-mark"></span></div>
+        </div>
+        <button class="step step-warm" type="button" id="cs-temp-up" data-t-aria="climate.temp.up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 12h12M12 6v12"/></svg>
+        </button>
+      </div>
+
+      <div class="row-duration">
+        <span class="row-label" data-t="climate.duration"></span>
+        <div class="mini-step">
+          <button class="step step-sm" type="button" id="cs-dur-down" data-t-aria="climate.duration.down">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 12h12"/></svg>
+          </button>
+          <output class="fig dur-value" id="cs-dur"></output>
+          <button class="step step-sm" type="button" id="cs-dur-up" data-t-aria="climate.duration.up">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 12h12M12 6v12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <label class="switch-row">
+        <span class="switch-text"><span data-t="climate.defrost"></span><small data-t="climate.defrost.sub"></small></span>
+        <input type="checkbox" class="switch" id="cs-defrost">
+      </label>
+      <label class="switch-row">
+        <span class="switch-text"><span data-t="climate.wheel"></span><small data-t="climate.wheel.sub"></small></span>
+        <input type="checkbox" class="switch" id="cs-wheel">
+      </label>
+      <label class="switch-row">
+        <span class="switch-text"><span data-t="climate.rear"></span><small data-t="climate.rear.sub"></small></span>
+        <input type="checkbox" class="switch" id="cs-rear">
+      </label>
+
+      <div class="seats-block">
+        <div class="row-label-wrap">
+          <span class="row-label" data-t="climate.seats"></span>
+          <small class="row-hint" data-t="climate.seats.hint"></small>
+        </div>
+        <div class="seats" id="cs-seats"></div>
+        <div class="seat-levels" id="cs-levels" role="radiogroup"></div>
+      </div>
+
+      <div class="save-row" id="cs-save-row" hidden>
+        <label class="field">
+          <span data-t="climate.save.name"></span>
+          <input id="cs-save-name" type="text" maxlength="28" data-t-ph="climate.save.placeholder" autocomplete="off">
+        </label>
+        <button class="btn-secondary" type="button" id="cs-save-confirm" data-t="climate.save.confirm"></button>
+      </div>
+      <p class="form-error" id="cs-save-error" role="alert" hidden></p>
+
+      <div class="sheet-actions sheet-actions-sticky">
+        <button class="btn-secondary" type="button" id="cs-save" data-t="climate.save"></button>
+        <button class="btn-primary" type="button" id="cs-start" data-t="climate.start"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="sched-sheet" aria-labelledby="ss-title">
+    <form method="dialog" class="sheet-body" id="ss-form" novalidate>
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="ss-title"></h2>
+        <button class="icon-btn" value="cancel" data-t-aria="climate.close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico" d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <label class="field">
+        <span data-t="sched.time"></span>
+        <input id="ss-time" class="ss-time" type="time" step="300" required>
+      </label>
+      <fieldset class="ss-group">
+        <legend data-t="sched.days"></legend>
+        <div class="days" id="ss-days"></div>
+        <div class="day-quick">
+          <button class="chip" type="button" id="ss-weekdays" data-t="sched.weekdays"></button>
+          <button class="chip" type="button" id="ss-everyday" data-t="sched.everyday"></button>
+        </div>
+      </fieldset>
+      <fieldset class="ss-group">
+        <legend data-t="sched.preset"></legend>
+        <div class="ss-presets" id="ss-presets" role="radiogroup"></div>
+      </fieldset>
+      <p class="form-error" id="ss-error" role="alert" hidden></p>
+      <div class="sheet-actions">
+        <button class="btn-secondary" type="button" id="ss-delete" data-t="sched.delete"></button>
+        <button class="btn-primary" type="submit" id="ss-save" data-t="sched.save"></button>
+      </div>
+    </form>
+  </dialog>
+
+</div>
+</body>
+</html>
