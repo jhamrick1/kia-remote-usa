@@ -15,7 +15,7 @@ const POLL_MS = 30000;
 const CMD_POLL_MS = 2000;
 const REAUTH_KEY = 'sportage.reauth';
 const RELOAD_KEY = 'sportage.autoreload';
-const APP_VERSION = 'v26';   // matches sw.js VERSION; shown at the bottom of the menu
+const APP_VERSION = 'v27';   // matches sw.js VERSION; shown at the bottom of the menu
 const CACHE_KEY = 'sportage.state';
 const PRESET_KEY = 'sportage.presets';
 
@@ -115,7 +115,9 @@ function setState(s, { fromCache = false } = {}) {
   render();
   if (s?.auth === 'ok' && !fromCache) {
     if (prevAuth !== 'ok' || presets === null) loadPresets();
-    if (prevAuth !== 'ok') loadVehicles();
+    // Fetch once per boot (and retry after errors): cached-startup sessions have prevAuth 'ok',
+    // so gating on the transition alone left the picker empty until a fresh sign-in.
+    if (prevAuth !== 'ok' || vehicles === null) loadVehicles();
     loadLog();
     if (s.pending?.id && !cmd) trackCommand(s.pending.id, s.pending.action, s.pending.sent_at);
   }
