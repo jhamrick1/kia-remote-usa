@@ -47,6 +47,11 @@ class Region:
         """What to send for "HI" / "LO". Default: the dial's ends as numbers."""
         return self.dial_max if end == "HI" else self.dial_min
 
+    def reported_set_temp(self, value: Any) -> Any:
+        """The setpoint the car reported, in °C for the dashboard ("HI"/"LO" pass through).
+        Default: as-is -- the library reports °C in every region ported so far."""
+        return value
+
     def horn_lights(self, vm: Any, vehicle: Any, horn: bool) -> Any:
         """Flash the lights (horn=False) or horn and lights (horn=True). Returns Kia's action id."""
         hornlight = getattr(vm.api, "hornlight", None)
@@ -72,7 +77,8 @@ class Region:
 
 def available() -> dict[str, type[Region]]:
     from .canada import Canada
-    return {cls.key: cls for cls in (Canada,)}
+    from .usa import Usa
+    return {cls.key: cls for cls in (Canada, Usa)}
 
 
 def get(key: str | None) -> Region:

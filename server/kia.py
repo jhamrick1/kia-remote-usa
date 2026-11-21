@@ -56,7 +56,7 @@ def _set_temp(value: Any) -> float | int | str | None:
     return _number(value)
 
 
-def vehicle_to_state(v: Any) -> dict[str, Any]:
+def vehicle_to_state(v: Any, region: Region | None = None) -> dict[str, Any]:
     """Map a library Vehicle to the contract's `vehicle` object (null where Kia is silent)."""
     range_km = _km(v.total_driving_range, v.total_driving_range_unit)
     if range_km is None:
@@ -69,6 +69,11 @@ def vehicle_to_state(v: Any) -> dict[str, Any]:
 
     def door(open_value: Any, locked_value: Any) -> dict[str, Any]:
         return {"open": _bool(open_value), "locked": _bool(locked_value)}
+
+    set_temp = _set_temp(v.air_temperature if v.air_temperature is not None
+                         else getattr(v, "_air_temperature_value", None))
+    if region is not None:
+        set_temp = region.reported_set_temp(set_temp)
 
     return {
         "name": v.name, "model": v.model, "year": v.year,
@@ -97,8 +102,7 @@ def vehicle_to_state(v: Any) -> dict[str, Any]:
         "climate": {
             "on": _bool(v.air_control_is_on),
             # the library turns "HI"/"LO" into None; its raw copy keeps them
-            "set_temp_c": _set_temp(v.air_temperature if v.air_temperature is not None
-                                    else getattr(v, "_air_temperature_value", None)),
+            "set_temp_c": set_temp,
             "defrost": _bool(v.defrost_is_on),
             "steering_heat": _bool(v.steering_wheel_heater_is_on),
             "rear_window_heat": _bool(v.back_window_heater_is_on),
@@ -143,6 +147,8 @@ class KiaCar:
         self.vm_factory = vm_factory
         self.vm: Any = None
         self.vehicle_id: str | None = None
+        self._vehicles: list[dict[str, Any]] = []   # every car on the account, for the picker
+        self.vehicle_file: Path | None = None   # where the picked car is kept (set by the app)
         self.auth = "needs_login"
         self.auth_error: str | None = None
         self.otp: dict[str, bool] | None = None
@@ -235,7 +241,11 @@ class KiaCar:
             self.vm.initialize_vehicles()
         if not self.vm.vehicles:
             raise ServiceError(404, "Signed in, but this Kia account has no car on it.")
-        self.vehicle_id = next(iter(self.vm.vehicles))
+        self._vehicles = [{"id": v.id, "name": v.name, "model": v.model, "year": v.year}
+                         for v in self.vm.vehicles.values()]
+        saved = self._load_vehicle_choice()
+        self.vehicle_id = (saved if saved in {v["id"] for v in self._vehicles}
+                           else self._vehicles[0]["id"])
         self.auth, self.auth_error, self.otp = "ok", None, None
         self._auto_login_allowed = True
         self._save_token()
@@ -243,7 +253,7 @@ class KiaCar:
 
     def _cached_update(self) -> None:
         self.vm.update_vehicle_with_cached_state(self.vehicle_id)
-        self._snapshot = vehicle_to_state(self.vm.get_vehicle(self.vehicle_id))
+        self._snapshot = vehicle_to_state(self.vm.get_vehicle(self.vehicle_id), self.region)
 
     def _guard(self, fn: Callable[[], Any]) -> Any:
         try:
@@ -318,6 +328,7 @@ class KiaCar:
         REDACTOR.clear()
         self.vm = None
         self.vehicle_id = None
+        self._vehicles = []
         self._snapshot = None
         self._entry = None
         self.auth, self.auth_error, self.otp = "needs_login", None, None
@@ -366,6 +377,40 @@ class KiaCar:
     def vehicle(self) -> dict[str, Any] | None:
         return self._snapshot if self.auth == "ok" else None
 
+    def vehicles(self) -> list[dict[str, Any]]:
+        """Every car on the account, the active one marked, for the dashboard's picker."""
+        self.require_ok()
+        return [{**v, "active": v["id"] == self.vehicle_id} for v in self._vehicles]
+
+    def select_vehicle(self, vehicle_id: str) -> None:
+        """Make another car on the account the active one and read its cached state."""
+        self.require_ok()
+        if not any(v["id"] == vehicle_id for v in self._vehicles):
+            raise ServiceError(404, "No such car on this Kia account.")
+        if vehicle_id != self.vehicle_id:
+            self.vehicle_id = vehicle_id
+            self._entry = None   # the picture belongs to the other car
+            self._save_vehicle_choice()
+            self._cached_update()
+
+    def _load_vehicle_choice(self) -> str | None:
+        if self.vehicle_file is None:
+            return None
+        try:
+            return json.loads(self.vehicle_file.read_text(encoding="utf-8")).get("vehicle_id")
+        except (OSError, ValueError):
+            return None
+
+    def _save_vehicle_choice(self) -> None:
+        if self.vehicle_file is None or not self.vehicle_id:
+            return
+        try:
+            tmp = self.vehicle_file.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"vehicle_id": self.vehicle_id}), encoding="utf-8")
+            tmp.replace(self.vehicle_file)
+        except OSError as exc:
+            log.warning("Couldn't save the car choice: %s", exc)
+
     def refresh(self, force: bool) -> None:
         self.require_ok()
 
@@ -373,7 +418,7 @@ class KiaCar:
             self._ensure_token()
             if force:
                 self.vm.force_refresh_vehicle_state(self.vehicle_id)
-                self._snapshot = vehicle_to_state(self.vm.get_vehicle(self.vehicle_id))
+                self._snapshot = vehicle_to_state(self.vm.get_vehicle(self.vehicle_id), self.region)
             else:
                 self._cached_update()
 

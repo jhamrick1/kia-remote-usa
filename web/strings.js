@@ -15,6 +15,7 @@ const EN = {
   'ago.day': '{n} d ago',
 
   'refresh.label': 'Refresh',
+  'picker.label': 'Car',
   'refresh.hint': 'Hold for more',
   'refresh.done': 'Refreshed',
   'refresh.failed': 'Refresh failed',

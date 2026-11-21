@@ -159,8 +159,15 @@ def refresh_force(body: Any) -> bool:
     if body is None:
         return False
     if not isinstance(body, dict):
-        raise bad("Send {\"force\": true} or {\"force\": false}.")
+        raise bad('Send {"force": true} or {"force": false}.')
     force = body.get("force", False)
     if not isinstance(force, bool):
         raise bad("force must be true or false.")
     return force
+
+
+def vehicle_id(body: Any) -> str:
+    vid = body.get("vehicle_id") if isinstance(body, dict) else None
+    if not isinstance(vid, str) or not vid.strip():
+        raise bad('Send {"vehicle_id": "..."}.')
+    return vid.strip()

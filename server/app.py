@@ -121,6 +121,8 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
         backend.region.cache_dir = data_dir
     if hasattr(backend, "report_path") and backend.report_path is None:
         backend.report_path = data_dir / "health-report.json"
+    if hasattr(backend, "vehicle_file") and backend.vehicle_file is None:
+        backend.vehicle_file = data_dir / "vehicle.json"   # the dashboard's picked car
     kwargs = {} if force_interval is None else {"force_interval": force_interval}
     service = CarService(backend, storage, **kwargs)
     scheduler = Scheduler(storage, service)
@@ -286,6 +288,15 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
     @app.post("/api/refresh")
     async def post_refresh(request: Request):
         return await service.refresh(validation.refresh_force(await _body(request)))
+
+    @app.get("/api/vehicles")
+    async def get_vehicles():
+        """Every car on the account, for the dashboard's picker."""
+        return await service.vehicles()
+
+    @app.post("/api/vehicle/select")
+    async def post_vehicle_select(request: Request):
+        return await service.select_vehicle(validation.vehicle_id(await _body(request)))
 
     @app.post("/api/command")
     async def post_command(request: Request):

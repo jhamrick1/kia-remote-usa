@@ -10,7 +10,8 @@ schedules, presets, passkeys and Cloudflare Access.
 |---|---|---|---|
 | Canada | Kia | Tested | `server/regions/canada.py` |
 | Canada | Hyundai, Genesis | Not started | Same backend software as Kia Canada (mybluelink.ca, genesisconnect.ca): likely a small file |
-| USA | Kia, Hyundai, Genesis | Not started | |
+| USA | Kia | Started | `server/regions/usa.py` (`tested: False` — climate runs through Kia Access in °F, no horn/lights yet) |
+| USA | Hyundai, Genesis | Not started | |
 | Europe | Kia, Hyundai, Genesis | Not started | |
 | Australia, NZ, India, Brazil, China | | Not started | |
 

@@ -15,7 +15,7 @@ Start: `.venv\Scripts\python.exe -m server` (real car) or `.venv\Scripts\python.
 - Passkeys for unlock (public keys, sign counts, labels; not secrets) are in `passkeys.json` there
   (`passkeys-demo.json` in demo mode, so a demo enrolment never unlocks the real car).
 - `settings.json` there holds settings (not secrets): the two Cloudflare Access values (below),
-  `"region"` (which Kia Connect region, default `"canada"`; see PORTING.md) and `"app_name"` (the
+  `"region"` (which Kia Connect region, `"canada"` or `"usa"`; default `"canada"`; see PORTING.md) and `"app_name"` (the
   name under the home-screen icon; `manifest.webmanifest` is served with it).
 
 ## Cloudflare Access
@@ -96,6 +96,15 @@ Saves to Credential Manager, logs in. Returns the new state (may be `needs_otp`)
 `force: false` reads Kia's cached last-known state (does not wake the car; cheap).
 `force: true` wakes the car for fresh data (slow ~30 s, costs 12V battery: the service refuses
 more than one forced refresh per 10 minutes with HTTP 429). Returns state.
+
+## GET /api/vehicles -> `{"vehicles": [{"id", "name", "model", "year", "active"}]}`
+Every car on the Kia account, `active` marking the one the dashboard shows (the first car
+unless another was picked). 401 when signed out. `vehicle`, every command and the schedules
+all act on the active car.
+## POST /api/vehicle/select   `{"vehicle_id": "..."}`
+Makes that car the active one, refreshes its state from Kia's cached copy (no wake-up) and
+remembers the choice in `vehicle.json` in the data folder, so it survives a restart. Returns
+the new state. 404 for a car that isn't on the account; 409 while a command is pending.
 
 ## POST /api/command
 ```json

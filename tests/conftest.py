@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import sys
 import time
@@ -113,6 +114,8 @@ class FakeKiaWorld:
         self.vehicle_lists = 0          # vehicle list reads (model and paint codes)
         self.paint = "HRB"
         self.locked = True
+        self.odometer = {}              # per-vehicle odometer; veh-1 (and any other) reads 1234.0
+        self.air_temp = None            # setpoint Kia reports; None: (21.0, "c") as Canada sends
         self.health_report: dict | None = None   # Kia's monthly report; None: there isn't one yet
 
 
@@ -198,9 +201,10 @@ class FakeApi:
         return self._token(username, password, pin)
 
     def get_vehicles(self, token):
-        v = Vehicle(id="veh-1", name="SPORTAGE", model="SPORTAGE", year=2026,
-                    VIN="FAKEVIN0000000000", engine_type=ENGINE_TYPES.ICE)
-        return [v]
+        return [Vehicle(id="veh-1", name="SPORTAGE", model="SPORTAGE", year=2026,
+                        VIN="FAKEVIN0000000000", engine_type=ENGINE_TYPES.ICE),
+                Vehicle(id="veh-2", name="TELLURIDE", model="TELLURIDE", year=2022,
+                        VIN="FAKEVIN0000000001", engine_type=ENGINE_TYPES.ICE)]
 
     def _fill(self, token, vehicle):
         self.lib_log.warning("status call with token %s", token.access_token)
@@ -209,11 +213,14 @@ class FakeApi:
         vehicle.fuel_level = 71.5
         vehicle.fuel_driving_range = (533, "km")
         vehicle.total_driving_range = (None, None)
-        vehicle.odometer = (1234.0, "km")
+        vehicle.odometer = (self.world.odometer.get(vehicle.id, 1234.0), "km")
         vehicle.car_battery_percentage = 90
         vehicle.engine_is_running = False
         vehicle.front_left_door_is_open = 0
-        vehicle.air_temperature = (21.0, "c")
+        if self.world.air_temp is None:
+            vehicle.air_temperature = (21.0, "c")
+        else:
+            vehicle.air_temperature = (self.world.air_temp, "°F")   # what the USA API reports
         vehicle.air_control_is_on = False
         vehicle.front_left_seat_status = "Off"
         vehicle.next_service_distance = (8000, "km")
@@ -236,10 +243,12 @@ class FakeApi:
         return "tx-1"
 
     def start_climate(self, token, vehicle, options):
-        # Same check the real library makes.
-        index = self.temperature_range_c_new.index(options.set_temp)
+        # Same check the real library makes (the USA one takes °F, outside the C table).
+        in_range = options.set_temp in self.temperature_range_c_new
+        index = self.temperature_range_c_new.index(options.set_temp) if in_range else None
         self.world.commands.append(f"climate:{options.set_temp}")
-        import json
+        if not in_range:
+            return "tx-2"
         body = {"setting": {"airTemp": {"value": (hex(index).split("x")[1] + "H").zfill(3).upper(),
                                         "unit": 0, "hvacTempType": 0}}, "pin": "x"}
         self.sessions.post("rmtstrt", headers={}, data=json.dumps(body))

@@ -14,12 +14,13 @@ const POLL_MS = 30000;
 const CMD_POLL_MS = 2000;
 const REAUTH_KEY = 'sportage.reauth';
 const RELOAD_KEY = 'sportage.autoreload';
-const APP_VERSION = 'v24';   // matches sw.js VERSION; shown at the bottom of the menu
+const APP_VERSION = 'v25';   // matches sw.js VERSION; shown at the bottom of the menu
 const CACHE_KEY = 'sportage.state';
 const PRESET_KEY = 'sportage.presets';
 
 let state = null;        // last /api/state
 let presets = null;      // last preset list
+let vehicles = null;     // last /api/vehicles (the header's picker)
 let pollTimer = null;
 let tickTimer = null;
 let cmd = null;          // {id, action, startedAt, timer}
@@ -112,6 +113,7 @@ function setState(s, { fromCache = false } = {}) {
   render();
   if (s?.auth === 'ok' && !fromCache) {
     if (prevAuth !== 'ok' || presets === null) loadPresets();
+    if (prevAuth !== 'ok') loadVehicles();
     loadLog();
     if (s.pending?.id && !cmd) trackCommand(s.pending.id, s.pending.action, s.pending.sent_at);
   }
@@ -140,6 +142,40 @@ function render() {
   $('menu-btn').hidden = !ok;
   if (ok) renderDash(s.vehicle || {});
   else renderAuth(s);
+  renderPicker();
+}
+
+// The header's car picker, when the account has more than one car.
+async function loadVehicles() {
+  try {
+    const res = await api.getVehicles();
+    vehicles = Array.isArray(res?.vehicles) ? res.vehicles : [];
+  } catch {
+    vehicles = null;   // signed out, or offline: hide it and let the next state poll retry
+  }
+  renderPicker();
+}
+
+function renderPicker() {
+  const list = state?.auth === 'ok' && Array.isArray(vehicles) ? vehicles : [];
+  const select = $('car-select');
+  select.replaceChildren(...list.map((v) => {
+    const opt = el('option', { text: titleCase(v.name) || v.model || v.id });
+    opt.value = v.id;
+    opt.selected = v.active === true;
+    return opt;
+  }));
+  $('car-picker').hidden = list.length < 2;
+}
+
+async function pickVehicle(e) {
+  if (cmd || !e.target.value) { showPill('failed', t('cmd.busy')); renderPicker(); return; }
+  try {
+    setState(await api.selectVehicle(e.target.value));
+  } catch (err) {
+    banner(err.plain || t('app.unreachable'));
+  }
+  loadVehicles();   // re-sync the marked car even when the switch was refused
 }
 
 function renderDash(v) {
@@ -831,6 +867,7 @@ function wire() {
   });
   $('act-horn').addEventListener('click', () => command('horn_lights'));
   $('act-hazard').addEventListener('click', () => command('hazard'));
+  $('car-select').addEventListener('change', pickVehicle);
   $('cmd-close').addEventListener('click', hidePill);
   schedule.wire({ changed: loadLog });
 

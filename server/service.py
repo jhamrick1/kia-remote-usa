@@ -197,6 +197,17 @@ class CarService:
         self._last_read = self.clock()
         return self.state()
 
+    # Vehicles (an account can carry more than one car)
+
+    async def vehicles(self) -> dict[str, Any]:
+        return {"vehicles": await self.run(self.backend.vehicles)}
+
+    async def select_vehicle(self, vehicle_id: str) -> dict[str, Any]:
+        if self._pending is not None:   # a switch mid-command would point the tracking at the other car
+            raise ServiceError(409, "Another command is still running. Wait for it to finish.")
+        await self.run(self.backend.select_vehicle, vehicle_id)
+        return self.state()
+
     async def _car_entry(self) -> tuple[Any, dict[str, Any]] | None:
         lookup = getattr(self.backend, "car_entry", None)
         region = getattr(self.backend, "region", None)

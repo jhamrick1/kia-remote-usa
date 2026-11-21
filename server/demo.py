@@ -162,6 +162,19 @@ class DemoCar:
             self._expire_climate()
             return copy.deepcopy(self._vehicle)
 
+    # Vehicles (one demo car; the picker only shows when there are two or more)
+
+    def vehicles(self) -> list[dict[str, Any]]:
+        self.require_ok()
+        v = self._vehicle
+        return [{"id": "demo-1", "name": v["name"], "model": v["model"], "year": v["year"],
+                 "active": True}]
+
+    def select_vehicle(self, vehicle_id: str) -> None:
+        self.require_ok()
+        if vehicle_id != "demo-1":
+            raise ServiceError(404, "No such car on this Kia account.")
+
     def refresh(self, force: bool) -> None:
         self.require_ok()
         if force:

@@ -63,6 +63,8 @@ export const sendCommand = (action, options, extra) =>
   api('command', { method: 'POST', body: { action, ...(options ? { options } : {}), ...(extra || {}) } });
 export const getCommand = (id) => api(`command/${encodeURIComponent(id)}`);
 export const getLog = () => api('log');
+export const getVehicles = () => api('vehicles');
+export const selectVehicle = (vehicle_id) => api('vehicle/select', { method: 'POST', body: { vehicle_id } });
 export const getPresets = () => api('presets');
 export const putPresets = (presets) => api('presets', { method: 'PUT', body: { presets } });
 export const getSchedules = () => api('schedules');
