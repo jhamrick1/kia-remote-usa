@@ -1,23 +1,25 @@
 // Climate: preset cards and the custom sheet (temperature, duration, extras, seats, save).
 import { t } from './strings.js';
 import { $, el, icon, vibrate, onPress } from './dom.js';
-import { temp } from './format.js';
+import { tempShown } from './format.js';
+import { isF, fromC, fDial } from './units.js';
 import * as api from './api.js';
 
-// The car's dial in 0.5 steps; the region sets its ends (state.dial, 17-27 in Canada). Past it the
-// car falls back to 22; LO / HI sent remotely start the engine with climate off (tried 2026-11-17
-// in Canada), so they aren't offered.
+// The car's dial, in the dashboard's units: 0.5-°C steps (state.dial, 17-27 in Canada) or whole °F
+// for the USA region (state.region.dial, 62-82). Past it the car falls back to its default; LO / HI
+// sent remotely start the engine with climate off (tried 2026-11-17 in Canada), so they aren't offered.
 let DIAL = dialSteps(17, 27);
 
-function dialSteps(min, max) {
-  return Array.from({ length: Math.round((max - min) * 2) + 1 }, (_, i) => min + i / 2);
+function dialSteps(min, max, step = 0.5) {
+  return Array.from({ length: Math.round((max - min) / step) + 1 }, (_, i) => min + i * step);
 }
 
-/** Take the region's dial from /api/state. */
+/** Take the region's dial from /api/state: the °C one, or the region's own dial in °F. */
 export function setDial(dial) {
-  const min = Number(dial?.min); const max = Number(dial?.max);
+  const d = isF() ? fDial() : dial;
+  const min = Number(d?.min); const max = Number(d?.max);
   if (Number.isFinite(min) && Number.isFinite(max) && max > min && (min !== DIAL[0] || max !== DIAL[DIAL.length - 1])) {
-    DIAL = dialSteps(min, max);
+    DIAL = dialSteps(min, max, isF() ? 1 : 0.5);
   }
 }
 const SEATS = ['front_left', 'front_right']; // the Sportage has no rear seat heat (the Kia app shows front only)
@@ -28,24 +30,44 @@ const isCool = (lvl) => lvl >= 3 && lvl <= 5;
 const isHeat = (lvl) => lvl >= 6 && lvl <= 8;
 const levelDigit = (lvl) => (isCool(lvl) ? lvl - 2 : isHeat(lvl) ? lvl - 5 : 0);
 
-/** The options the big climate button sends: the last custom run, or 21 C for 10 min. */
-export function lastOptions() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
-    if (saved && typeof saved === 'object') return { ...saved, set_temp_c: onDial(saved.set_temp_c ?? 21) };
-  } catch { /* fall through */ }
-  return { set_temp_c: 21, duration_min: 10 };
+/** The temperature a set of options carries, in the dashboard's unit: set_temp_f when it has one,
+ * else set_temp_c converted (in a °F region) or as-is. */
+function tempIn(o) {
+  if (o?.set_temp_f != null) return o.set_temp_f;
+  const c = o?.set_temp_c;
+  return isF() && typeof c === 'number' && Number.isFinite(c) ? fromC(c) : c;
 }
 
-/** "22 °C, 10 min" for a preset or the big button. */
+/** The temperature option this build sends: set_temp_f (whole °F) in a °F region, set_temp_c
+ * otherwise -- and never both (the service refuses that). */
+function tempOption(value, base = {}) {
+  const o = { ...base };
+  if (isF()) { o.set_temp_f = onDial(value); delete o.set_temp_c; }
+  else { o.set_temp_c = onDial(value); delete o.set_temp_f; }
+  return o;
+}
+
+/** The options the big climate button sends: the last custom run, or the dial's default for 10 min. */
+export function lastOptions() {
+  let saved = null;
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
+    if (raw && typeof raw === 'object') saved = raw;
+  } catch { /* private mode */ }
+  if (saved) return tempOption(tempIn(saved), saved);
+  return tempOption(isF() ? fromC(21) : 21, { duration_min: 10 });
+}
+
+/** "22 °C, 10 min" (or "72 °F, 10 min") for a preset or the big button. */
 export function describe(o) {
-  return t('preset.meta', { temp: temp(o?.set_temp_c ?? null), min: o?.duration_min ?? 10 });
+  return t('preset.meta', { temp: tempShown(tempIn(o)), min: o?.duration_min ?? 10 });
 }
 
 /** Warm or cool feel of a set of options (drives card colour). */
 export function feel(o) {
   const anyCool = SEATS.some((s) => isCool(o?.[`${s}_seat`]));
-  if (anyCool || o?.set_temp_c === 'LO' || (typeof o?.set_temp_c === 'number' && o.set_temp_c < 19)) return 'cool';
+  const temp = tempIn(o);
+  if (anyCool || temp === 'LO' || (typeof temp === 'number' && temp < (isF() ? 66 : 19))) return 'cool';
   return 'heat';
 }
 
@@ -93,7 +115,7 @@ function seatKey(seat) { return `${seat}_seat`; }
 
 function fromOptions(o) {
   return {
-    set_temp_c: onDial(o?.set_temp_c ?? 21),
+    temp: onDial(tempIn(o) ?? (isF() ? fromC(21) : 21)),
     duration_min: Math.min(10, Math.max(1, Math.round(o?.duration_min ?? 10))),
     defrost: o?.defrost === true,
     // Kia's heating code: 1 both, 2 rear window + mirrors, 3 steering wheel
@@ -105,7 +127,7 @@ function fromOptions(o) {
 
 function toOptions(d) {
   const heating = d.wheel && d.rear ? 1 : d.rear ? 2 : d.wheel ? 3 : 0;
-  const o = { set_temp_c: d.set_temp_c, duration_min: d.duration_min, defrost: d.defrost, heating };
+  const o = tempOption(d.temp, { duration_min: d.duration_min, defrost: d.defrost, heating });
   for (const s of SEATS) o[seatKey(s)] = d.seats[s];
   return o;
 }
@@ -115,8 +137,8 @@ function onDial(v) {
   const lo = DIAL[0]; const hi = DIAL[DIAL.length - 1];
   if (v === 'HI') return hi;
   if (v === 'LO') return lo;
-  if (typeof v !== 'number' || Number.isNaN(v)) return Math.min(hi, Math.max(lo, 21));
-  return Math.min(hi, Math.max(lo, Math.round(v * 2) / 2));
+  if (typeof v !== 'number' || Number.isNaN(v)) return Math.min(hi, Math.max(lo, isF() ? fromC(21) : 21));
+  return Math.min(hi, Math.max(lo, isF() ? Math.round(v) : Math.round(v * 2) / 2));
 }
 
 function stepDial(v, by) {
@@ -155,8 +177,8 @@ function build() {
     el('span', { class: 'lvl-legend-heat', text: t('seat.scale.heat') })));
 
   const step = (id, fn) => onPress($(id), { tap: () => { fn(); vibrate(6); paint(); } });
-  step('cs-temp-down', () => { draft.set_temp_c = stepDial(draft.set_temp_c, -1); });
-  step('cs-temp-up', () => { draft.set_temp_c = stepDial(draft.set_temp_c, 1); });
+  step('cs-temp-down', () => { draft.temp = stepDial(draft.temp, -1); });
+  step('cs-temp-up', () => { draft.temp = stepDial(draft.temp, 1); });
   step('cs-dur-down', () => { draft.duration_min = Math.max(1, draft.duration_min - 1); });
   step('cs-dur-up', () => { draft.duration_min = Math.min(10, draft.duration_min + 1); });
   $('cs-defrost').addEventListener('change', (e) => { draft.defrost = e.target.checked; vibrate(6); });
@@ -246,8 +268,8 @@ async function deletePreset() {
 }
 
 function paint() {
-  $('cs-temp').textContent = temp(draft.set_temp_c);
-  const at = DIAL.indexOf(draft.set_temp_c);
+  $('cs-temp').textContent = tempShown(draft.temp);
+  const at = DIAL.indexOf(draft.temp);
   $('cs-temp-mark').style.setProperty('--t', String(at / (DIAL.length - 1)));
   $('cs-temp-down').disabled = at <= 0;
   $('cs-temp-up').disabled = at >= DIAL.length - 1;

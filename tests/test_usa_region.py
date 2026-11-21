@@ -52,6 +52,52 @@ def test_the_setpoint_the_car_reported_shows_in_celsius():
     assert r.reported_set_temp("HI") == "HI"   # the dial's ends stay words for the dashboard
 
 
+def test_the_fahrenheit_dial_belongs_to_the_usa_region():
+    assert Usa().dial_f() == (62.0, 82.0)
+    from server.regions.canada import Canada
+    assert Canada().dial_f() is None   # canada keeps its °C dial and °C-only options
+
+
+def test_a_fahrenheit_command_reaches_the_library_unchanged(tmp_path, memory_keyring,
+                                                            vm_factory, world):
+    from fastapi.testclient import TestClient
+
+    from server.app import create_app
+    from server.kia import KiaCar
+    from server.secrets_store import SecretStore
+    from conftest import OTP_CODE, wait_for_command
+
+    backend = KiaCar(SecretStore(), vm_factory=vm_factory, region=Usa())
+    backend.poll_interval = 0.05
+    app = create_app(demo=False, data_dir=tmp_path / "data", backend=backend,
+                     web_dir=tmp_path / "web")
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:
+        c.post("/api/login", json={"email": "owner.fake@example.test", "password": "Pw-SECRET-ZQX-4471",
+                                   "pin": "8642"})
+        c.post("/api/otp/send", json={"method": "EMAIL"})
+        assert c.post("/api/otp/verify", json={"code": OTP_CODE}).json()["auth"] == "ok"
+        assert c.get("/api/state").json()["region"] == {"key": "usa", "name": "Kia Access USA",
+                                                        "unit": "f", "dial": {"min": 62, "max": 82}}
+        cid = c.post("/api/command", json={"action": "climate_start",
+                                           "options": {"set_temp_f": 72}}).json()["id"]
+        assert wait_for_command(c, cid)["status"] == "success"
+        assert "climate:72" in world.commands   # the °F value reached ClimateRequestOptions unchanged
+
+        # A °F preset is stored as the °F the user picked (schedules run it the same way).
+        r = c.put("/api/presets", json={"presets": [{"id": "p1", "name": "Warm", "icon": None,
+                                                     "options": {"set_temp_f": 72, "duration_min": 5}}]})
+        assert r.status_code == 200
+        assert r.json()["presets"][0]["options"] == {"set_temp_f": 72, "duration_min": 5}
+        assert c.get("/api/presets").json()["presets"][0]["options"]["set_temp_f"] == 72
+
+        # Both units at once, and anything off the 62-82 dial, is refused before Kia sees it.
+        for bad in ({"set_temp_c": 21, "set_temp_f": 70}, {"set_temp_f": 61}, {"set_temp_f": 83},
+                    {"set_temp_f": 72.5}, {"set_temp_f": "72"}):
+            assert c.post("/api/command", json={"action": "climate_start",
+                                                "options": bad}).status_code == 400
+        assert "climate:72" in world.commands and world.commands == ["climate:72"]
+
+
 def test_a_us_backend_round_trips_celsius_out_and_fahrenheit_back(tmp_path, memory_keyring,
                                                                   vm_factory, world):
     from fastapi.testclient import TestClient

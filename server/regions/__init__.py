@@ -27,6 +27,11 @@ class Region:
     dial_min = 17.0
     dial_max = 27.0
 
+    def dial_f(self) -> tuple[float, float] | None:
+        """The car's dial in °F, when the region's car API takes Fahrenheit directly (the
+        dashboard then speaks °F and sends set_temp_f). None: the API is °C everywhere."""
+        return None
+
     cache_dir: Path | None = None   # the data folder; set by the app, for files worth keeping
 
     def climate_request(self, options: dict[str, Any], set_temp: float) -> ClimateRequestOptions:

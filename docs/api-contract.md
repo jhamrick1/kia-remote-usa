@@ -75,7 +75,12 @@ browser also approves it once Kia accepts the password (it takes `"label"` too).
     "next_service_km": 8000
   },
   "pending": null,              // the command in flight, same shape as a log entry, or null
-  "dial": {"min": 17, "max": 27}  // the car's temperature dial (C) for this region; HI/LO are the ends
+  "dial": {"min": 17, "max": 27},  // the car's temperature dial (C) for this region; HI/LO are the ends
+  "region": {                   // which Kia Connect region this is, and the units to speak
+    "key": "canada", "name": "Kia Connect Canada",
+    "unit": "c",                // "c" (Canada, demo without a region) or "f" (Usa)
+    "dial": null                // the car's dial in `unit` units when unit is "f" (Usa: 62-82 F)
+  }
 }
 ```
 Any field the car doesn't report is `null`; the dashboard must cope with nulls everywhere.
@@ -114,6 +119,9 @@ the new state. 404 for a car that isn't on the account; 409 while a command is p
                                    // but past the dial the car falls back to 22. "HI"/"LO" are
                                    // accepted and sent as 27/17: the word itself makes the car
                                    // start with climate off.
+   "set_temp_f": 72,               // USA region only: the car's own 62-82 F dial, whole degrees.
+                                   // Sent to Kia unchanged (no C roundtrip). Send one temperature,
+                                   // not both; a °F value for Canada is refused with 400.
    "duration_min": 10,             // 1-10
    "defrost": true, "heating": 1,  // 0 off, 1 steering wheel + rear window + mirrors,
                                    // 2 rear window + mirrors, 3 steering wheel only
@@ -204,6 +212,10 @@ add a fingerprint. Returns `{"id", "label", "rp_id", "created_at", "last_used_at
 - "Winter morning": 22 C, defrost, heating 1, driver seat high heat, 10 min
 - "Quick warm": 21 C, 5 min
 - "Summer cool": 17 C, driver seat low cool, 10 min
+
+Options are validated like /api/command's (so a USA preset may carry `set_temp_f`); the °C
+defaults above display as whole °F in the USA build (22 C -> 72 F). A schedule stores only the
+preset's id, so a °F preset survives the round trip unchanged.
 
 ## GET /api/schedules -> `{"schedules": [...], "next": {"id", "at"} | null}`
 ## PUT /api/schedules `{"schedules": [...]}` -> same

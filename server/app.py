@@ -224,6 +224,11 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
     def unapproved(request: Request) -> bool:
         return request.state.who != "local" and request.state.device is None
 
+    def dial_f() -> tuple[float, float] | None:
+        """The car's dial in °F when the region's car API takes °F directly (Usa); None: °C only."""
+        region = getattr(backend, "region", None)
+        return region.dial_f() if region is not None else None
+
     @app.get("/api/state")
     async def get_state(request: Request):
         if unapproved(request) and backend.auth == "ok":
@@ -301,7 +306,8 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
     @app.post("/api/command")
     async def post_command(request: Request):
         body = await _body(request)
-        action, options = validation.command(body, service.backend.temp_range(), service.backend.dial())
+        action, options = validation.command(body, service.backend.temp_range(), service.backend.dial(),
+                                             dial_f())
         via = None
         if action == "unlock":
             service.check_can_command()   # don't spend a PIN try or a challenge on a refusal
@@ -360,7 +366,7 @@ def create_app(demo: bool = False, data_dir: Path | None = None, *,
 
     @app.put("/api/presets")
     async def put_presets(request: Request):
-        presets = validation.presets(await _body(request))
+        presets = validation.presets(await _body(request), dial_f())
         ids = {p["id"] for p in presets}
         if any(s["preset_id"] not in ids for s in storage.load_schedules()):
             raise ServiceError(409, "A schedule uses that preset. Change or delete the schedule first.")

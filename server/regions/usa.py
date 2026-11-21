@@ -40,6 +40,10 @@ class Usa(Region):
     dial_min = 17.0
     dial_max = 27.0
 
+    def dial_f(self) -> tuple[float, float]:
+        """Kia Access USA takes the setpoint in °F straight from the car's own 62-82 dial."""
+        return 62.0, 82.0
+
     def reported_set_temp(self, value: Any) -> Any:
         """Kia Access reports the setpoint in °F; the dashboard shows °C ("HI"/"LO" stay)."""
         if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -50,9 +54,11 @@ class Usa(Region):
         """The USA request: °F on the wire, and the heating code split into the library's
         heating (rear window + mirrors) and steering_wheel options."""
         heating = options.get("heating", 0)
+        # A native set_temp_f (validated against dial_f) goes out unchanged; the °C paths convert.
+        native = options.get("set_temp_f")
         return ClimateRequestOptions(
             climate=True,
-            set_temp=_c_to_f(set_temp),
+            set_temp=int(native) if native is not None else _c_to_f(set_temp),
             duration=options.get("duration_min", 10),
             defrost=options.get("defrost", False),
             heating=1 if heating in (1, 2) else 0,   # rear window + mirrors (1) or neither

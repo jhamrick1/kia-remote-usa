@@ -46,6 +46,17 @@ def _public(entry: dict[str, Any]) -> dict[str, Any]:
     return {"who": None, "via": None, **entry}   # entries from before who/via existed
 
 
+def _region_view(region: Any) -> dict[str, Any] | None:
+    """What the dashboard needs to pick its temperature units: which region, and, when the
+    region's car API takes °F directly (Usa), the car's dial in °F."""
+    if region is None:
+        return None
+    dial_f = region.dial_f()
+    return {"key": region.key, "name": region.name,
+            "unit": "f" if dial_f is not None else "c",
+            "dial": dict(zip(("min", "max"), dial_f)) if dial_f is not None else None}
+
+
 class CarService:
     def __init__(self, backend: Any, storage: Storage,
                  force_interval: float = FORCE_REFRESH_INTERVAL,
@@ -96,6 +107,7 @@ class CarService:
     def state(self) -> dict[str, Any]:
         b = self.backend
         self._maybe_reread()
+        region = getattr(b, "region", None)
         return {
             "demo": bool(b.demo),
             "auth": b.auth,
@@ -104,6 +116,9 @@ class CarService:
             "vehicle": self._with_timer(b.vehicle()) if b.auth == "ok" else None,
             "pending": dict(self._pending) if self._pending else None,
             "dial": dict(zip(("min", "max"), b.dial())),   # the car's temperature dial, Celsius
+            # Which region this is and its own dial, so the dashboard speaks the car's units
+            # (°F for Kia Access USA, °C otherwise). None without a region (demo mode).
+            "region": _region_view(region),
         }
 
     def _maybe_reread(self) -> None:

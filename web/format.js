@@ -1,5 +1,6 @@
 // Formatting helpers. Every function copes with null/undefined and returns the quiet dash.
 import { t } from './strings.js';
+import { isF, fromC } from './units.js';
 
 export const DASH = t('dash');
 
@@ -18,10 +19,17 @@ export function dec(v) {
   return isNum(v) ? oneFmt.format(v).replace('-', '−') : DASH;
 }
 
-/** "21.5 °C" for a set temperature; "HI" / "LO" when the car reports the ends of the dial. */
+/** "21.5 °C" (or "70 °F" in a °F region) for a set temperature; "HI" / "LO" when the car reports
+ * the ends of the dial. Takes °C as the service reports it. */
 export function temp(v) {
   if (v === 'HI' || v === 'LO') return v;
-  return isNum(v) ? `${dec(v)}${t('unit.c')}` : DASH;
+  return tempShown(isNum(v) ? fromC(v) : null);
+}
+
+/** A temperature already in the dashboard's unit: whole °F, or °C with its decimal. */
+export function tempShown(v) {
+  if (v === 'HI' || v === 'LO') return v;
+  return isNum(v) ? (isF() ? `${Math.round(v)}${t('unit.f')}` : `${dec(v)}${t('unit.c')}`) : DASH;
 }
 
 export function num(v) {

@@ -458,6 +458,9 @@ class KiaCar:
         return self.vm.start_climate(vid, self._climate_request(options))
 
     def _climate_request(self, options: dict[str, Any]) -> ClimateRequestOptions:
+        native = options.get("set_temp_f")
+        if native is not None:   # the region's own dial units (Usa: °F), validated already
+            return self.region.climate_request(options, float(native))
         temp = options.get("set_temp_c", 21)
         allowed = self.temp_range()
         match = next((t for t in allowed if abs(t - float(temp)) < 1e-9), None)

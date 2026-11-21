@@ -275,6 +275,7 @@ const EN = {
   'unit.km': 'km',
   'unit.percent': '%',
   'unit.c': '°C',
+  'unit.f': '°F',
 
   'loc.title': 'Parked at',
   'loc.unknown': 'Location not reported',

@@ -30,7 +30,8 @@ def test_state_has_the_contract_shape(client):
     assert r.status_code == 200
     assert r.headers["cache-control"] == "no-store"
     s = r.json()
-    assert set(s) == {"demo", "auth", "auth_error", "otp", "vehicle", "pending", "dial"}
+    assert set(s) == {"demo", "auth", "auth_error", "otp", "vehicle", "pending", "dial", "region"}
+    assert s["region"] is None   # the demo car has no region: the dashboard stays in °C
     assert s["demo"] is True and s["auth"] == "ok" and s["pending"] is None
     v = s["vehicle"]
     assert set(v) == VEHICLE_KEYS

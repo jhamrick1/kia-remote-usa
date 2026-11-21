@@ -43,7 +43,8 @@ def test_starts_signed_out(tmp_path, memory_keyring, vm_factory, world):
     with make_client(tmp_path, vm_factory) as c:
         s = c.get("/api/state").json()
         assert s == {"demo": False, "auth": "needs_login", "auth_error": None, "otp": None,
-                     "vehicle": None, "pending": None, "dial": {"min": 17, "max": 27}}
+                     "vehicle": None, "pending": None, "dial": {"min": 17, "max": 27},
+                     "region": {"key": "canada", "name": "Kia Connect Canada", "unit": "c", "dial": None}}
         assert c.post("/api/refresh").status_code == 401
         assert c.post("/api/command", json={"action": "lock"}).status_code == 401
     assert world.login_calls == 0
@@ -164,6 +165,18 @@ def test_commands_against_fake_kia(tmp_path, memory_keyring, vm_factory, world):
             cid = c.post("/api/command", json={"action": action}).json()["id"]
             assert wait_for_command(c, cid)["status"] == "success"
             assert f"hornlight:{horn}" in world.commands
+
+
+def test_canada_stays_celsius_and_refuses_set_temp_f(tmp_path, memory_keyring, vm_factory, world):
+    with make_client(tmp_path, vm_factory) as c:
+        sign_in(c)
+        assert c.get("/api/state").json()["region"]["unit"] == "c"
+        r = c.post("/api/command", json={"action": "climate_start", "options": {"set_temp_f": 70}})
+        assert r.status_code == 400 and "Celsius" in r.json()["error"]
+        r = c.put("/api/presets", json={"presets": [{"id": "p", "name": "Warm", "icon": None,
+                                                     "options": {"set_temp_f": 70}}]})
+        assert r.status_code == 400 and "Celsius" in r.json()["error"]
+        assert world.commands == []   # nothing reached Kia
 
 
 def test_no_secret_in_responses_or_files(tmp_path, memory_keyring, vm_factory, world):

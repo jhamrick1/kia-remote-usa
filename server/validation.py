@@ -21,7 +21,7 @@ SEAT_KEYS = ("front_left_seat", "front_right_seat", "rear_left_seat", "rear_righ
 # 3 steering wheel only (the hyundai_kia_connect_api convention). 4 was tried on this car on
 # 2026-11-17: steering wheel only, no heated windshield, so it isn't accepted.
 HEATING = (0, 1, 2, 3)
-CLIMATE_KEYS = ("set_temp_c", "duration_min", "defrost", "heating", *SEAT_KEYS)
+CLIMATE_KEYS = ("set_temp_c", "set_temp_f", "duration_min", "defrost", "heating", *SEAT_KEYS)
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -42,8 +42,13 @@ def _fmt(t: float) -> str:
 
 
 def climate_options(raw: Any, temp_range: tuple[float, ...] = TEMP_RANGE_NEW,
-                    dial: tuple[float, float] = (DIAL_MIN, DIAL_MAX)) -> dict[str, Any]:
-    """Validate climate options; returns a clean copy (only the keys given)."""
+                    dial: tuple[float, float] = (DIAL_MIN, DIAL_MAX),
+                    dial_f: tuple[float, float] | None = None) -> dict[str, Any]:
+    """Validate climate options; returns a clean copy (only the keys given).
+
+    `dial_f` is the car's dial in °F when the region's car API takes Fahrenheit directly
+    (Usa's 62-82): then `set_temp_f`, a whole °F value, is accepted and kept as-is.
+    """
     if raw is None:
         return {}
     if not isinstance(raw, dict):
@@ -52,6 +57,15 @@ def climate_options(raw: Any, temp_range: tuple[float, ...] = TEMP_RANGE_NEW,
     if unknown:
         raise bad(f"Unknown climate option: {unknown[0]}.")
     out: dict[str, Any] = {}
+    if raw.get("set_temp_f") is not None:
+        if dial_f is None:
+            raise bad("This car's temperature dial is in Celsius; use set_temp_c.")
+        if raw.get("set_temp_c") is not None:
+            raise bad("Send one temperature: set_temp_c or set_temp_f, not both.")
+        temp_f = raw["set_temp_f"]
+        if not _is_int(temp_f) or not dial_f[0] <= temp_f <= dial_f[1]:
+            raise bad(f"Temperature must be {_fmt(dial_f[0])} to {_fmt(dial_f[1])} F in whole degrees.")
+        out["set_temp_f"] = temp_f
     if raw.get("set_temp_c") is not None:
         temp = raw["set_temp_c"]
         if temp in TEMP_ENDS:
@@ -87,18 +101,19 @@ def climate_options(raw: Any, temp_range: tuple[float, ...] = TEMP_RANGE_NEW,
 
 
 def command(body: Any, temp_range: tuple[float, ...] = TEMP_RANGE_NEW,
-            dial: tuple[float, float] = (DIAL_MIN, DIAL_MAX)) -> tuple[str, dict[str, Any] | None]:
+            dial: tuple[float, float] = (DIAL_MIN, DIAL_MAX),
+            dial_f: tuple[float, float] | None = None) -> tuple[str, dict[str, Any] | None]:
     if not isinstance(body, dict):
         raise bad("Send a JSON object with an action.")
     action = body.get("action")
     if action not in ACTIONS:
         raise bad("Unknown action. Use lock, unlock, climate_start, climate_stop, hazard or horn_lights.")
     if action == "climate_start":
-        return action, climate_options(body.get("options"), temp_range, dial)
+        return action, climate_options(body.get("options"), temp_range, dial, dial_f)
     return action, None
 
 
-def presets(body: Any) -> list[dict[str, Any]]:
+def presets(body: Any, dial_f: tuple[float, float] | None = None) -> list[dict[str, Any]]:
     if not isinstance(body, dict) or not isinstance(body.get("presets"), list):
         raise bad("Send {\"presets\": [...]}.")
     items = body["presets"]
@@ -119,7 +134,7 @@ def presets(body: Any) -> list[dict[str, Any]]:
         if icon is not None and (not isinstance(icon, str) or len(icon) > 40):
             raise bad("A preset icon must be a short text.")
         try:
-            options = climate_options(item.get("options") or {})
+            options = climate_options(item.get("options") or {}, dial_f=dial_f)
         except ServiceError as err:
             raise bad(f"Preset \"{name.strip()}\": {err.message}") from None
         out.append({"id": pid, "name": name.strip(), "icon": icon, "options": options})

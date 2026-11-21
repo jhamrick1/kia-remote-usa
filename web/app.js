@@ -5,6 +5,7 @@ import { $, el, icon, vibrate, onPress } from './dom.js';
 import * as api from './api.js';
 import * as passkey from './passkey.js';
 import { int, dec, temp, num, ago, minutesSince, coords, mapsUrl, DASH } from './format.js';
+import { setRegion, isF, fromC } from './units.js';
 import { renderCar, climateMode } from './car.js';
 import { renderPresets, openClimateSheet, lastOptions, describe, setDial } from './climate.js';
 import * as schedule from './schedule.js';
@@ -14,7 +15,7 @@ const POLL_MS = 30000;
 const CMD_POLL_MS = 2000;
 const REAUTH_KEY = 'sportage.reauth';
 const RELOAD_KEY = 'sportage.autoreload';
-const APP_VERSION = 'v25';   // matches sw.js VERSION; shown at the bottom of the menu
+const APP_VERSION = 'v26';   // matches sw.js VERSION; shown at the bottom of the menu
 const CACHE_KEY = 'sportage.state';
 const PRESET_KEY = 'sportage.presets';
 
@@ -103,6 +104,7 @@ function bootMessage(text) {
 function setState(s, { fromCache = false } = {}) {
   const prevAuth = state?.auth;
   state = s;
+  if (s?.region) setRegion(s.region);   // the unit decides which dial setDial builds
   if (s?.dial) setDial(s.dial);
   if (!fromCache && s?.auth === 'ok') {
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch { /* storage full or private */ }
@@ -273,7 +275,8 @@ function renderGauges(v) {
   $('batt-bar').style.setProperty('--batt', String(batt === null ? 0 : Math.max(0, Math.min(100, batt))));
   $('batt-pct').closest('.tile').classList.toggle('is-warn', v.warnings?.aux_battery === true || (batt !== null && batt < 50));
 
-  $('outside-c').textContent = dec(v.outside_temp_c);
+  $('outside-c').textContent = dec(fromC(v.outside_temp_c));
+  $('outside-unit').textContent = t(isF() ? 'unit.f' : 'unit.c');
   $('odo-km').textContent = int(v.odometer_km);
   $('service-km').textContent = int(v.next_service_km);
   const nulls = [['fuel-pct', fuel], ['range-km', v.range_km], ['batt-pct', batt], ['outside-c', v.outside_temp_c],
